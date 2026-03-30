@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary": "#ffeff1",
+              "inverse-on-surface": "#9d9d9a",
+              "surface-container-low": "#f1f1ee",
+              "on-secondary-container": "#1f5467",
+              "surface-bright": "#f7f6f3",
+              "on-tertiary-fixed-variant": "#6c6656",
+              "primary": "#923f5f",
+              "surface-tint": "#923f5f",
+              "primary-container": "#fe97b9",
+              "on-primary-container": "#621837",
+              "primary-dim": "#843353",
+              "primary-fixed": "#fe97b9",
+              "primary-fixed-dim": "#ee8aac",
+              "on-primary-fixed": "#420020",
+              "on-primary-fixed-variant": "#6d2140",
+              "inverse-primary": "#fe97b9",
+              "tertiary-fixed": "#fdf3df",
+              "background": "#f7f6f3"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Plus Jakarta Sans"],
+              "label": ["Plus Jakarta Sans"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      body { font-family: 'Plus Jakarta Sans', sans-serif; }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .text-shadow-soft {
+        text-shadow: 0 2px 10px rgba(146, 63, 95, 0.1);
+      }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-[#f7f6f3]/70 dark:bg-[#1a1a19]/70 backdrop-blur-md shadow-[0_12px_40px_rgba(146,63,95,0.08)] h-20 flex justify-between items-center px-8 font-['Plus_Jakarta_Sans'] tracking-tight">
+<div class="text-2xl font-bold text-[#2e2f2d] dark:text-[#f7f6f3] hover:scale-105 transition-transform duration-200 cursor-pointer">
+            SoftBoutique
+        </div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-[#923f5f] dark:text-[#f48fb1] border-b-2 border-[#923f5f] pb-1 hover:scale-105 transition-transform duration-200" href="#">Tienda</a>
+<a class="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Novedades</a>
+<a class="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Colecciones</a>
+<a class="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Nosotros</a>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-[#5b5c5a] hover:scale-105 transition-transform duration-200 flex items-center">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+<button class="text-[#5b5c5a] hover:scale-105 transition-transform duration-200 flex items-center">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</nav>
+<main class="pt-20">
+<!-- Hero Section -->
+<section class="relative px-8 py-16 md:py-24 overflow-hidden bg-surface-container-low">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12 relative z-10">
+<div class="flex-1 space-y-6">
+<span class="inline-block px-4 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container font-medium text-sm tracking-wide">
+                        La Colección Más Tierna
+                    </span>
+<h1 class="text-5xl md:text-7xl font-extrabold text-on-surface tracking-tight leading-[1.1]">
+                        Un Amigo <br/><span class="text-primary italic">para Siempre.</span>
+</h1>
+<p class="text-on-surface-variant text-lg max-w-lg leading-relaxed">
+                        Hecho a mano con los materiales más suaves del mundo. Cada amigo de Maravilla Peluches está diseñado para ser abrazado y durar toda una vida de momentos acogedores.
+                    </p>
+<div class="pt-4 flex gap-4">
+<button class="px-8 py-4 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold shadow-lg hover:scale-105 active:scale-95 transition-all">
+                            Explorar Novedades
+                        </button>
+<button class="px-8 py-4 rounded-full text-primary font-bold border-2 border-primary/10 hover:bg-primary/5 transition-all">
+                            Nuestra Historia
+                        </button>
+</div>
+</div>
+<div class="flex-1 relative">
+<div class="absolute inset-0 bg-primary-container/20 blur-[100px] rounded-full"></div>
+<img class="relative z-10 w-full h-[500px] object-cover rounded-xl shadow-[0_20px_60px_rgba(146,63,95,0.12)] -rotate-2 hover:rotate-0 transition-transform duration-500" data-alt="A collection of ultra-soft pastel plush toys including a white bunny and pink cat sitting on a cream velvet armchair with soft sunbeams" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoMEeuneAAUg812lqAEDDRXPK2eoQd1lVe9jpjLFcmT8ZhYjbe3C1o2cuMwe7jE-Vh2NfaqFlCJZX5zy5tuxnWUbvTkFVe6p8zShunBJdT048ur9bLHU_YqPwafnvp7cZi3V57B6rSu2kYeX5HVkLGgEwTs2AB2gV0jw0dEHc9FhYMsLBRMidTH6ogowSW3CjVPtDJTTOCjDym27vZyUXbjHcgViYMBLhslnuJh42hnCVOO0MRuu5WXRUA9HAYJLTmdFP3UExx3Hk"/>
+</div>
+</div>
+</section>
+<!-- Filter & Catalog Section -->
+<section class="px-8 py-12 max-w-7xl mx-auto">
+<!-- Filter Pills -->
+<div class="flex flex-wrap items-center justify-center gap-3 mb-16">
+<button class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md transition-all">Todos</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest font-medium text-sm transition-all">Serie Gigante</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest font-medium text-sm transition-all">Mini Compañeros</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest font-medium text-sm transition-all">Edición Limitada</button>
+<button class="px-6 py-2.5 rounded-full bg-tertiary-container text-on-tertiary-container font-semibold text-sm transition-all">Novedades</button>
+</div>
+<!-- Product Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+<!-- Product Card 1: Luna Rabbit -->
+<div class="group relative flex flex-col bg-surface-container-lowest rounded-xl p-4 shadow-[0_12px_40px_rgba(146,63,95,0.08)] hover:scale-[1.02] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden rounded-lg mb-6">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Close-up of a premium white plush rabbit with long floppy ears and a soft pink nose on a neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsUMttIKHZhwo-KNNgJQxcQJiRwaooelV9ZNjQc4U3IyE9Nk6UOF_-XHnNayYRcgvvJrV_aIQU9jiSAMpmWovwF0Cdy97fsbWV0bgos2A-JJhgPU5ZQhnNob0tn1IitTVslgfYRrnqmvaal2R_OQ8uyvzBzaPH8lT9Fc8Swb_E05EDkv6MM1hDHvbUrr0m7JmpWVr-wjiQg8EuSBuJwNdSqs9ch7RW2dWGMcOmw-gjzG5TQpkxkw-qwpY95VtrHBuCN4A6c_Ny7y4"/>
+<span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold">MÁS VENDIDO</span>
+</div>
+<div class="flex flex-col flex-grow">
+<h3 class="text-xl font-bold text-on-surface mb-1">Conejo Luna</h3>
+<p class="text-on-surface-variant text-sm mb-4">Terciopelo cremoso con ojos que brillan a medianoche.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-2xl font-extrabold text-primary">$42.00</span>
+<button class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 2: Cloud Cat -->
+<div class="group relative flex flex-col bg-surface-container-lowest rounded-xl p-4 shadow-[0_12px_40px_rgba(146,63,95,0.08)] hover:scale-[1.02] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden rounded-lg mb-6">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="A soft grey plush kitten with embroidered details and a fluffy tail, sitting on a white knitted blanket" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsxG_W34XhgnTJUca4HTwqdK1G-M00Xew_1HgN3mawt3dBSng2uvBqeNJusbTNtYfUYKeYi0996hday-HfXuKV-VgbW5WP5PAmMv2CGJ4PqojsMSOjBZRlz0zLSlWILnOVRP6mYF17YnKnF1cv_J21jfe7zXEojaa96yjl3gRa5-xMclaTx1WVl_YnpGSmEselvoVZ-ur9Gj7YdwjLRsyY__M9v9lVTnZCM5PT3S7fYQdCyJ8qEiDzXpmmrnhI3-ABhnBj77xUjFA"/>
+<span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-primary-container text-on-primary-container text-xs font-bold">NUEVO</span>
+</div>
+<div class="flex flex-col flex-grow">
+<h3 class="text-xl font-bold text-on-surface mb-1">Gato Nube</h3>
+<p class="text-on-surface-variant text-sm mb-4">Un amigo gris brumoso que se siente como abrazar una nube.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-2xl font-extrabold text-primary">$38.00</span>
+<button class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 3: Matcha Bear -->
+<div class="group relative flex flex-col bg-surface-container-lowest rounded-xl p-4 shadow-[0_12px_40px_rgba(146,63,95,0.08)] hover:scale-[1.02] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden rounded-lg mb-6">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="An adorable sage green teddy bear made from textured plush fabric with a silk bow around its neck" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhFr21Y-lxSJN4Wx8NuJD6PY--Ae57h_AUadNe3RVGD1Ijjyn9LFALnyn0yx9jBElWV5OmHv4rd4WBFeoplcH1-r_KEWQ1xvbafol2Xf0w2XuihhaA8ZidhpISK6x7aCm0_flJmkCJTUU5ZMtxK5Q3z_HcY9O8eSVBQa9m-4uK_ED37eA5lavW_qf75U9oMjRBEZXHjQsn-Ifin1dnXh6wh2wFW4X0DyZCCj0J9STnsGPGwSme4OTvZmCWrdrgNCehLspIdiXcvaQ"/>
+</div>
+<div class="flex flex-col flex-grow">
+<h3 class="text-xl font-bold text-on-surface mb-1">Osomatcha</h3>
+<p class="text-on-surface-variant text-sm mb-4">Verde salvia terroso con base pesada para sentarse.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-2xl font-extrabold text-primary">$45.00</span>
+<button class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 4: Rosebud Poodle -->
+<div class="group relative flex flex-col bg-surface-container-lowest rounded-xl p-4 shadow-[0_12px_40px_rgba(146,63,95,0.08)] hover:scale-[1.02] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden rounded-lg mb-6">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="A fancy pink poodle plush toy with extra curly fur and a soft golden collar in an editorial studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXHt9CsfIS69i_XkxBcFa343yNv_EAQ78Ove19nRoXtZIKiW9c8NNOW7ENtn-0pLZKNBwdvr4zKZ54cGzgehaCjLA3qPGLkhwNqgEH5GyGJw8nmPDUp19fGvQLw4G-M_OEI5SjVfTkHWsL44zcg3pI_2pKemTMO3wmp84E_g5UwysaTqgo9IHu6hHse9WuvtVs3cztmv4s2BPBgrwV6dV3nFWb30V6LUVLtuTZ5R9cioLnUuvA5_5VWLmmlwa5s1af0P0LEGo6Noo"/>
+</div>
+<div class="flex flex-col flex-grow">
+<h3 class="text-xl font-bold text-on-surface mb-1">Caniche Rosado</h3>
+<p class="text-on-surface-variant text-sm mb-4">Pelaje rizado rosa rosado con una elegante cinta de seda.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-2xl font-extrabold text-primary">$48.00</span>
+<button class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 5: Sleepy Sloth -->
+<div class="group relative flex flex-col bg-surface-container-lowest rounded-xl p-4 shadow-[0_12px_40px_rgba(146,63,95,0.08)] hover:scale-[1.02] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden rounded-lg mb-6">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="A long-armed brown sloth plush hanging from a soft wooden post with sleepy embroidered eyes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlpfj5zcUtg6b763-DSuDHBQR2sttH2t2iPlpNHF52_lcd8vADTH6ch0jAH3zZINLNfH7HJiSCTqs50_Ocunph3lE2yXQBU-ifudBzN39ZJ2FhpYr2y5e6sguWWKw7Py-8mFcaWO8IPMuHzoNeRmQbi5ZZ6L_76rZ7O0FLbcxnJpyUVm8Ad6BGlKeXU3uxYmTEHmcrNCtRBUasTsnjt2UYMODT1rJczT9LT4pbBe-m7c6m_xzY1lsxLVP5sb6cjI9Rf97mEyXbhYY"/>
+</div>
+<div class="flex flex-col flex-grow">
+<h3 class="text-xl font-bold text-on-surface mb-1">Perezoso Dormilón</h3>
+<p class="text-on-surface-variant text-sm mb-4">Largo brazos de velcro perfectos para abrazos colgantes.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-2xl font-extrabold text-primary">$34.00</span>
+<button class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 6: Berry Fox -->
+<div class="group relative flex flex-col bg-surface-container-lowest rounded-xl p-4 shadow-[0_12px_40px_rgba(146,63,95,0.08)] hover:scale-[1.02] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden rounded-lg mb-6">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="A vibrant orange and cream fox plush with a large bushy tail sitting on an oak floor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2NsNJve7hv8GBEmHI6rdilL5B0ZOG7tV1EeGlUx_7uiGIEgzRauYQP_z1M_OikH2zNeV1mDPYiEyn9cRdzPm1l7Uo6aqK5qZI0mwQg4FrWQSkFtnQJNpPUvxCU6yNGqzzX5xiDzNsFNtO7BAjZAVrgFC-gGzMaw7m6VRkQZ5V2_wgabWsW93IdPv5QYia3k2V0B_MWhKlsJjzsLvSM8uNCbOQ9kyjRJSvyDJT-UBvJNwO9F1T6huk71DTnOLcoWoCA3Z1UNFxDmg"/>
+<span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-bold">LIMITADO</span>
+</div>
+<div class="flex flex-col flex-grow">
+<h3 class="text-xl font-bold text-on-surface mb-1">Zorro Baya</h3>
+<p class="text-on-surface-variant text-sm mb-4">Rico pelaje canela con punta de cola blanca como la nieve.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-2xl font-extrabold text-primary">$55.00</span>
+<button class="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- View More CTA -->
+<div class="mt-20 text-center">
+<button class="px-12 py-5 rounded-full bg-surface-container-low text-on-surface font-bold text-lg hover:bg-surface-container-high transition-all">
+                    Cargar más Amigos
+                </button>
+</div>
+</section>
+<!-- Newsletter Subscription (Bento-ish Block) -->
+<section class="px-8 py-20">
+<div class="max-w-5xl mx-auto rounded-xl bg-primary-container/10 p-12 relative overflow-hidden flex flex-col items-center text-center">
+<div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl"></div>
+<div class="absolute -bottom-10 -left-10 w-40 h-40 bg-secondary/10 rounded-full blur-3xl"></div>
+<h2 class="text-4xl font-extrabold text-on-surface mb-4 tracking-tight">Siempre Tierno, Siempre Dulce.</h2>
+<p class="text-on-surface-variant max-w-lg mb-8 text-lg">
+                    Únete a la familia de Maravilla Peluches para acceso exclusivo a ediciones limitadas y consejos de cuidado.
+                </p>
+<form class="flex flex-col md:flex-row w-full max-w-md gap-4">
+<input class="flex-grow px-6 py-4 rounded-full bg-surface-container-lowest border-none focus:ring-2 focus:ring-primary shadow-sm outline-none text-on-surface" placeholder="Tu correo electrónico..." type="email"/>
+<button class="px-8 py-4 rounded-full bg-primary text-on-primary font-bold shadow-lg hover:scale-105 transition-all" type="submit">
+                        Suscribirse
+                    </button>
+</form>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 mt-20 bg-[#f1f1ee] dark:bg-[#1a1a19] flex flex-col items-center justify-center gap-4 text-center font-['Plus_Jakarta_Sans'] text-xs">
+<div class="flex gap-8 mb-4">
+<a class="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#923f5f] transition-colors" href="#">Política de Privacidad</a>
+<a class="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#923f5f] transition-colors" href="#">Términos de Servicio</a>
+<a class="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#923f5f] transition-colors" href="#">Envíos y Devoluciones</a>
+<a class="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#923f5f] transition-colors" href="#">Contáctenos</a>
+</div>
+<div class="text-[#5b5c5a] dark:text-[#a1a19f]">
+            © 2024 SoftBoutique. Creado para más abrazos.
+        </div>
+</footer>
+</body></html>
