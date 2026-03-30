@@ -8,8 +8,8 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "SoftBoutique | Gestión Administrativa",
-  description: "Portal de gestión para peluches de alta calidad",
+  title: "Maravilla Peluches | Catálogo & Gestión",
+  description: "Peluches hechos a mano con amor y suavidad incomparable.",
 };
 
 export default function RootLayout({
