@@ -223,7 +223,7 @@ export default function AdminPage() {
         }
 
         setIsAddModalOpen(false);
-        setNewProduct({ name: "", price: 0, category_id: "", description: "", quantity: 0 });
+        setNewProduct({ name: "", price: 0, category_id: "", description: "", quantity: 0, size: "" });
         setNewProductImage(null);
 
         // Refetch products
