@@ -14,8 +14,11 @@ interface InventoryItem {
   id: string;
   name: string;
   price: number;
+  description?: string;
   category_id?: string;
   is_active?: boolean;
+  is_visible?: boolean;
+  is_hero?: boolean;
   categories?: { name: string };
   inventory: {
     quantity: number;
@@ -51,27 +54,17 @@ export default function AdminPage() {
         const [productsRes, categoriesRes] = await Promise.all([
           supabase
             .from("products")
-            .select("id, name, price, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
+            .select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
           supabase.from("categories").select("*")
         ]);
 
-        // Intentamos obtener is_active por separado o manejar el error si no existe
-        const { data: activeData, error: activeError } = await supabase
-          .from("products")
-          .select("id, is_active");
-
         if (productsRes.data) {
-          const items = productsRes.data.map(item => ({
-            ...item,
-            // Si hay error en is_active, por defecto todos están activos para que no desaparezcan
-            is_active: activeError ? true : (activeData?.find(a => a.id === item.id)?.is_active ?? true)
-          })) as unknown as InventoryItem[];
-
+          const items = productsRes.data as unknown as InventoryItem[];
           setInventory(items);
           setMetrics({
             totalProducts: items.length,
             activeOrders: 142,
-            lowStock: items.filter(item => (item.inventory as any)?.status === "bajo inventario").length
+            lowStock: items.filter(item => item.inventory?.status === "bajo inventario").length
           });
         }
 
