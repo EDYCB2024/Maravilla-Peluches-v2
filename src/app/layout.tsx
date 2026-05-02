@@ -8,9 +8,11 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Maravilla Peluches | Catálogo & Gestión",
-  description: "Peluches hechos a mano con amor y suavidad incomparable.",
+  title: "Maravilla Productos | Catálogo & Gestión",
+  description: "Productos hechos a mano con amor y calidad incomparable.",
 };
+
+import { CartProvider } from "./context/CartContext";
 
 export default function RootLayout({
   children,
@@ -26,7 +28,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${plusJakartaSans.variable} antialiased`}>
-        {children}
+        <CartProvider>
+          {children}
+        </CartProvider>
       </body>
     </html>
   );
