@@ -14,10 +14,10 @@ interface Product {
   price: number;
   description: string;
   size?: string;
-  category_id: string;
-  categories?: { name: string };
-  product_images?: { url: string; alt_text: string }[];
-  inventory?: { quantity: number; status: string };
+  category_id?: string;
+  categories?: any;
+  product_images?: any;
+  inventory?: any;
   is_active?: boolean;
 }
 
