@@ -51,21 +51,24 @@ export default function AdminPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [isEditSupplierModalOpen, setIsEditSupplierModalOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: "", price: 0, category_id: "", description: "", quantity: 0, size: "" });
   const [newSupplier, setNewSupplier] = useState({ name: "", location: "", phone: "", products: "" });
   const [newProductImage, setNewProductImage] = useState<File | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingSupplier, setEditingSupplier] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(Date.now());
 
 
   useEffect(() => {
     async function fetchAdminData() {
       try {
-        const [productsRes, categoriesRes] = await Promise.all([
+        const [productsRes, categoriesRes, suppliersRes] = await Promise.all([
           supabase
             .from("products")
             .select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
-          supabase.from("categories").select("*")
+          supabase.from("categories").select("*"),
+          supabase.from("suppliers").select("*")
         ]);
 
         if (productsRes.data) {
@@ -84,6 +87,10 @@ export default function AdminPage() {
 
         if (categoriesRes.data) {
           setCategories(categoriesRes.data);
+        }
+
+        if (suppliersRes.data) {
+          setSuppliers(suppliersRes.data);
         }
       } catch (error) {
         console.error("Error fetching admin data:", error);
@@ -241,16 +248,82 @@ export default function AdminPage() {
     }
   };
 
-  const handleAddSupplier = () => {
+  const handleAddSupplier = async () => {
     if (!newSupplier.name || !newSupplier.phone) {
       alert("Nombre y Teléfono son obligatorios");
       return;
     }
-    const id = (suppliers.length + 1).toString();
-    setSuppliers([...suppliers, { id, ...newSupplier }]);
-    setIsSupplierModalOpen(false);
-    setNewSupplier({ name: "", location: "", phone: "", products: "" });
-    alert("Proveedor añadido con éxito");
+    
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("suppliers")
+        .insert([newSupplier])
+        .select();
+
+      if (error) throw error;
+
+      setSuppliers([...suppliers, data[0]]);
+      setIsSupplierModalOpen(false);
+      setNewSupplier({ name: "", location: "", phone: "", products: "" });
+      alert("Proveedor añadido con éxito");
+    } catch (error) {
+      console.error("Error adding supplier:", error);
+      alert("Error al añadir el proveedor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateSupplier = async () => {
+    if (!editingSupplier) return;
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("suppliers")
+        .update({
+          name: editingSupplier.name,
+          location: editingSupplier.location,
+          phone: editingSupplier.phone,
+          products: editingSupplier.products
+        })
+        .eq("id", editingSupplier.id);
+
+      if (error) throw error;
+
+      setSuppliers(prev => prev.map(s => s.id === editingSupplier.id ? editingSupplier : s));
+      setIsEditSupplierModalOpen(false);
+      setEditingSupplier(null);
+      alert("Proveedor actualizado con éxito");
+    } catch (error) {
+      console.error("Error updating supplier:", error);
+      alert("Error al actualizar el proveedor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSupplier = async (id: string) => {
+    if (!confirm("¿Seguro que quieres eliminar este proveedor?")) return;
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("suppliers")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setSuppliers(prev => prev.filter(s => s.id !== id));
+      setIsEditSupplierModalOpen(false);
+      setEditingSupplier(null);
+      alert("Proveedor eliminado.");
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      alert("Error al eliminar el proveedor.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateProduct = async () => {
@@ -886,6 +959,88 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Modal Editar Proveedor */}
+      {isEditSupplierModalOpen && editingSupplier && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-md" onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }} />
+          <div className="relative bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10">
+            <button 
+              onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error hover:text-white transition-all"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">edit</span>
+              Editar Proveedor
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre del Proveedor</label>
+                <input
+                  type="text"
+                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                  value={editingSupplier.name}
+                  onChange={(e) => setEditingSupplier({...editingSupplier, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Ubicación</label>
+                <input
+                  type="text"
+                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                  value={editingSupplier.location}
+                  onChange={(e) => setEditingSupplier({...editingSupplier, location: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Teléfono de Contacto</label>
+                <input
+                  type="text"
+                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none font-mono"
+                  value={editingSupplier.phone}
+                  onChange={(e) => setEditingSupplier({...editingSupplier, phone: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Productos que Suministra</label>
+                <textarea
+                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none"
+                  value={editingSupplier.products}
+                  onChange={(e) => setEditingSupplier({...editingSupplier, products: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-4 mt-8">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }}
+                  className="flex-1 py-4 rounded-full font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleUpdateSupplier}
+                  className="flex-1 py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+              
+              <div className="pt-6 border-t border-error/10">
+                <button
+                  onClick={() => handleDeleteSupplier(editingSupplier.id)}
+                  className="w-full py-3 bg-error/5 hover:bg-error text-error hover:text-white rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-error/10 hover:border-error"
+                >
+                  <span className="material-symbols-outlined text-sm">delete</span>
+                  Eliminar Proveedor
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
 
       <main className="ml-64 flex-1 p-8 lg:p-12 transition-all">
@@ -1029,8 +1184,15 @@ export default function AdminPage() {
                 </thead>
                 <tbody className="divide-y divide-surface-container">
                   {suppliers.map((supplier) => (
-                    <tr key={supplier.id} className="hover:bg-surface-container-low/30 transition-colors">
-                      <td className="px-8 py-5 text-sm font-bold text-on-surface">{supplier.name}</td>
+                    <tr 
+                      key={supplier.id} 
+                      className="hover:bg-surface-container-low/30 transition-colors cursor-pointer group"
+                      onClick={() => {
+                        setEditingSupplier({...supplier});
+                        setIsEditSupplierModalOpen(true);
+                      }}
+                    >
+                      <td className="px-8 py-5 text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{supplier.name}</td>
                       <td className="px-8 py-5 text-sm text-on-surface-variant">{supplier.location}</td>
                       <td className="px-8 py-5 text-sm text-on-surface-variant font-mono">{supplier.phone}</td>
                       <td className="px-8 py-5 text-sm text-on-surface-variant">
