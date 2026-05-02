@@ -798,7 +798,7 @@ export default function AdminPage() {
             <div className="mt-8 pt-6 border-t border-error/10">
               <p className="text-[9px] font-black uppercase tracking-widest text-error/60 mb-3 text-center">Zona de Peligro</p>
               <button
-                onClick={() => handleDeleteProduct(editingProduct.id)}
+                onClick={() => handleDeleteProduct()}
                 className="w-full py-3 bg-error/5 hover:bg-[#ba1a1a] text-error hover:text-white rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-error/10 hover:border-error"
               >
                 <span className="material-symbols-outlined text-sm">delete_forever</span>
