@@ -1,7 +1,8 @@
 import React from "react";
-import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import CategoryFilter from "./components/CategoryFilter";
+import ProductCard from "./components/ProductCard";
+import HeroImage from "./components/HeroImage";
 
 interface Product {
   id: string;
@@ -12,6 +13,7 @@ interface Product {
   categories?: { name: string };
   product_images?: { url: string; alt_text: string }[];
   inventory?: { quantity: number; status: string };
+  is_active?: boolean;
 }
 
 interface Category {
@@ -28,7 +30,7 @@ export default async function HomePage({
   const currentCategory = resolvedParams.category || "Todos";
 
   // Fetch data on the server
-  const [productsRes, categoriesRes] = await Promise.all([
+  const [productsRes, categoriesRes, exchangeRes] = await Promise.all([
     supabase
       .from("products")
       .select(`
@@ -37,10 +39,16 @@ export default async function HomePage({
         product_images (url, alt_text, is_primary),
         inventory (quantity, status)
       `),
-    supabase.from("categories").select("*")
+    supabase.from("categories").select("*"),
+    fetch("https://ve.dolarapi.com/v1/dolares/oficial", { cache: 'no-store' }).then(res => res.json()).catch(() => null)
   ]);
 
-  const products: Product[] = productsRes.data || [];
+  const dollarRate = exchangeRes?.promedio || 0;
+
+  // Identificamos el producto de portada y filtramos los visibles
+  const heroProduct = productsRes.data?.find(p => (p as any).is_hero === true);
+  let products: Product[] = (productsRes.data || [])
+    .filter(p => (p as any).is_visible !== false && (p as any).is_hero !== true);
   const categories: Category[] = categoriesRes.data || [];
 
   const filteredProducts = currentCategory === "Todos" 
@@ -64,6 +72,12 @@ export default async function HomePage({
           <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Nosotros</a>
         </div>
         <div className="flex items-center gap-6">
+          {dollarRate > 0 && (
+            <div className="hidden sm:flex flex-col items-end border-r border-on-surface/10 pr-6 mr-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">Tasa BCV</span>
+              <span className="text-sm font-black text-primary">Bs. {dollarRate.toFixed(2)}</span>
+            </div>
+          )}
           <button className="text-[#5b5c5a] hover:scale-105 transition-transform duration-200 flex items-center">
             <span className="material-symbols-outlined">shopping_cart</span>
           </button>
@@ -99,12 +113,10 @@ export default async function HomePage({
             <div className="flex-1 relative">
               <div className="absolute inset-0 bg-primary-container/20 blur-[100px] rounded-full"></div>
               <div className="relative z-10 w-full h-[500px] -rotate-2 hover:rotate-0 transition-transform duration-500 overflow-hidden rounded-xl shadow-[0_20px_60px_rgba(146,63,95,0.12)]">
-                <Image 
-                  fill
-                  className="object-cover" 
-                  src="https://images.unsplash.com/photo-1559411634-1925b425f778?auto=format&fit=crop&q=80&w=1000" 
-                  alt="Colección de peluches suaves"
-                  priority
+                <HeroImage 
+                  initialSrc="/images/hero.jpg"
+                  fallbackSrc="https://images.unsplash.com/photo-1559411634-1925b425f778?auto=format&fit=crop&q=80&w=1000"
+                  alt="Portada"
                 />
               </div>
             </div>
@@ -119,40 +131,9 @@ export default async function HomePage({
           {/* Product Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
             {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => {
-                const primaryImage = product.product_images?.find(img => img.url)?.url || "https://images.unsplash.com/photo-1559411634-1925b425f778?auto=format&fit=crop&q=80&w=500";
-                
-                return (
-                  <div key={product.id} className="group relative flex flex-col bg-surface-container-lowest rounded-xl p-4 shadow-[0_12px_40px_rgba(146,63,95,0.08)] hover:scale-[1.02] transition-all duration-300">
-                    <div className="relative w-full aspect-square overflow-hidden rounded-lg mb-6 bg-surface-container-high">
-                      <Image 
-                        fill
-                        className="object-cover group-hover:scale-110 transition-transform duration-500" 
-                        src={primaryImage} 
-                        alt={product.name}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                      />
-                      {product.inventory?.status && (
-                        <span className={`absolute top-4 left-4 z-10 px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${
-                          product.inventory.status === 'disponible' ? 'bg-secondary-container text-on-secondary-container' : 'bg-highlight-container text-on-highlight-container'
-                        }`}>
-                          {product.inventory.status}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-col flex-grow">
-                      <h3 className="text-xl font-bold text-on-surface mb-1">{product.name}</h3>
-                      <p className="text-on-surface-variant text-sm mb-4 line-clamp-2">{product.description}</p>
-                      <div className="mt-auto flex items-center justify-between">
-                        <span className="text-2xl font-extrabold text-primary">${product.price.toFixed(2)}</span>
-                        <button className="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-colors">
-                          <span className="material-symbols-outlined">shopping_cart</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+                filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} dollarRate={dollarRate} />
+                ))
             ) : (
                 <div className="col-span-full py-20 flex flex-col items-center gap-4">
                     <span className="material-symbols-outlined text-6xl text-on-surface-variant opacity-20">sentiment_dissatisfied</span>
