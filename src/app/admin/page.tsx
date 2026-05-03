@@ -57,22 +57,31 @@ export default function AdminPage() {
   const [newProductImage, setNewProductImage] = useState<File | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(Date.now());
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [settings, setSettings] = useState<any>({
+    email: "",
+    phone: "",
+    instagram: "",
+    address: "",
+    working_hours: ""
+  });
 
 
   useEffect(() => {
     async function fetchAdminData() {
       try {
-        const [productsRes, categoriesRes, suppliersRes] = await Promise.all([
+        const [productsRes, categoriesRes, suppliersRes, settingsRes] = await Promise.all([
           supabase
             .from("products")
             .select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
           supabase.from("categories").select("*"),
-          supabase.from("suppliers").select("*")
+          supabase.from("suppliers").select("*"),
+          supabase.from("settings").select("*").single()
         ]);
 
         if (productsRes.data) {
-          const items = productsRes.data as unknown as InventoryItem[];
+          const items = (productsRes.data as unknown as InventoryItem[])
+            .sort((a, b) => a.name.localeCompare(b.name));
           setInventory(items);
           setMetrics({
             totalProducts: items.length,
@@ -91,6 +100,10 @@ export default function AdminPage() {
 
         if (suppliersRes.data) {
           setSuppliers(suppliersRes.data);
+        }
+
+        if (settingsRes.data) {
+          setSettings(settingsRes.data);
         }
       } catch (error) {
         console.error("Error fetching admin data:", error);
@@ -321,6 +334,30 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error deleting supplier:", error);
       alert("Error al eliminar el proveedor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateSettings = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("settings")
+        .update({
+          email: settings.email,
+          phone: settings.phone,
+          instagram: settings.instagram,
+          address: settings.address,
+          working_hours: settings.working_hours
+        })
+        .eq("id", 1);
+
+      if (error) throw error;
+      alert("¡Configuración de la tienda actualizada con éxito!");
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      alert("Error al actualizar la configuración.");
     } finally {
       setLoading(false);
     }
@@ -1208,6 +1245,114 @@ export default function AdminPage() {
           </section>
         )}
 
+        {activeTab === "config" && (
+          <section className="bg-surface-container-lowest rounded-xl shadow-[0_12px_40px_rgba(146,63,95,0.04)] overflow-hidden">
+            <div className="p-8 border-b border-surface-container flex justify-between items-center bg-primary/5">
+              <div>
+                <h3 className="text-xl font-bold text-on-surface">Configuración de Pantalla Principal</h3>
+                <p className="text-sm text-on-surface-variant">Modifica la información de contacto y detalles generales de la tienda.</p>
+              </div>
+              <button 
+                onClick={handleUpdateSettings}
+                className="px-8 py-3 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                Guardar Cambios
+              </button>
+            </div>
+            
+            <div className="p-8 max-w-4xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm">contact_support</span>
+                    Contacto y Soporte
+                  </h4>
+                  
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Correo Electrónico</label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40">mail</span>
+                      <input
+                        type="email"
+                        className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                        value={settings.email}
+                        onChange={(e) => setSettings({...settings, email: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Número de WhatsApp</label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40">call</span>
+                      <input
+                        type="text"
+                        className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none font-mono"
+                        value={settings.phone}
+                        onChange={(e) => setSettings({...settings, phone: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Usuario de Instagram</label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40">photo_camera</span>
+                      <input
+                        type="text"
+                        className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                        value={settings.instagram}
+                        onChange={(e) => setSettings({...settings, instagram: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm">store</span>
+                    Ubicación y Horarios
+                  </h4>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Dirección Física</label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40">location_on</span>
+                      <textarea
+                        className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none"
+                        value={settings.address}
+                        onChange={(e) => setSettings({...settings, address: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Horario de Atención</label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40">schedule</span>
+                      <input
+                        type="text"
+                        className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                        value={settings.working_hours}
+                        onChange={(e) => setSettings({...settings, working_hours: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-12 p-6 bg-secondary/5 rounded-3xl border border-secondary/10 flex items-start gap-4">
+                <span className="material-symbols-outlined text-secondary">info</span>
+                <div>
+                  <p className="text-sm font-bold text-on-surface">Importante</p>
+                  <p className="text-xs text-on-surface-variant mt-1">Estos datos se reflejarán automáticamente en el pie de página de la tienda principal y en el botón de contacto de WhatsApp.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {activeTab === "catalogo" && (
           <section className="bg-surface-container-lowest rounded-xl shadow-[0_12px_40px_rgba(146,63_95,0.04)] overflow-hidden">
             <div className="p-8 border-b border-surface-container flex justify-between items-center">
@@ -1317,7 +1462,10 @@ export default function AdminPage() {
               ) : inventory.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                   {[...inventory]
-                    .sort((a, b) => (b.is_hero ? 1 : 0) - (a.is_hero ? 1 : 0))
+                    .sort((a, b) => {
+                      if (b.is_hero !== a.is_hero) return (b.is_hero ? 1 : 0) - (a.is_hero ? 1 : 0);
+                      return a.name.localeCompare(b.name);
+                    })
                     .filter(item => selectedCategory === "Todos" || item.categories?.name === selectedCategory)
                     .map((item) => (
                       <AdminProductCard
