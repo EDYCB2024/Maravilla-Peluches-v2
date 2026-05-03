@@ -8,7 +8,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Maravilla Productos | Catálogo & Gestión",
+  title: "Maravilla Productos | Catálogo",
   description: "Productos hechos a mano con amor y calidad incomparable.",
 };
 
