@@ -2775,15 +2775,35 @@ export default function AdminPage() {
         </footer>
         {/* custom Toast notification */}
         {toast && (
-          <div className={`fixed bottom-6 right-6 z-[120] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-lg border animate-in slide-in-from-bottom-5 duration-300 ${
-            toast.type === "error" 
-              ? "bg-red-50 dark:bg-zinc-900 border-red-200 text-red-700 dark:text-red-400" 
-              : "bg-green-50 dark:bg-zinc-900 border-green-200 text-green-700 dark:text-green-400"
-          }`}>
-            <span className="material-symbols-outlined text-lg">
-              {toast.type === "error" ? "error" : "check_circle"}
-            </span>
-            <p className="text-sm font-bold">{toast.message}</p>
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="absolute inset-0 bg-[#2e2f2d]/30 backdrop-blur-sm" onClick={() => setToast(null)} />
+            <div className="relative bg-white dark:bg-surface-container-lowest rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl border border-primary/10 animate-in zoom-in-95 duration-200 text-center flex flex-col items-center">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${
+                toast.type === "error" 
+                  ? "bg-error/10 text-error" 
+                  : "bg-green-500/10 text-green-600"
+              }`}>
+                <span className="material-symbols-outlined text-3xl font-black">
+                  {toast.type === "error" ? "error" : "check_circle"}
+                </span>
+              </div>
+              <h3 className="text-xl font-black text-on-surface mb-2">
+                {toast.type === "error" ? "Ups, algo salió mal" : "¡Excelente!"}
+              </h3>
+              <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">
+                {toast.message}
+              </p>
+              <button 
+                onClick={() => setToast(null)}
+                className={`w-full py-3.5 rounded-full font-bold text-xs uppercase tracking-widest transition-all ${
+                  toast.type === "error"
+                    ? "bg-error text-white shadow-lg hover:scale-105 active:scale-95"
+                    : "bg-primary text-on-primary shadow-lg hover:scale-105 active:scale-95"
+                }`}
+              >
+                Aceptar
+              </button>
+            </div>
           </div>
         )}
 
