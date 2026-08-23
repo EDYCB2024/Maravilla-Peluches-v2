@@ -2787,10 +2787,7 @@ export default function AdminPage() {
                   {toast.type === "error" ? "error" : "check_circle"}
                 </span>
               </div>
-              <h3 className="text-xl font-black text-on-surface mb-2">
-                {toast.type === "error" ? "Ups, algo salió mal" : "¡Excelente!"}
-              </h3>
-              <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">
+              <p className="text-on-surface text-base font-bold mb-6 mt-2 leading-relaxed">
                 {toast.message}
               </p>
               <button 
