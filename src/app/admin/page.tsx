@@ -120,10 +120,39 @@ export default function AdminPage() {
     onConfirm: () => {}
   });
 
-  // Custom shadowed alert function that displays a toast notification
+  const getFriendlyMessage = (msg: string): string => {
+    const lower = msg.toLowerCase();
+    
+    if (lower.includes("products_slug_key") || (lower.includes("duplicate key") && lower.includes("slug"))) {
+      return "Ya existe un producto con este nombre. Intenta usando un nombre diferente.";
+    }
+    if (lower.includes("row-level security") || lower.includes("violates row-level security policy") || lower.includes("42501")) {
+      return "Acceso denegado: No tienes los permisos necesarios para realizar esta operación.";
+    }
+    if (lower.includes("failed to fetch") || lower.includes("network error") || lower.includes("networkerror")) {
+      return "Error de red: No se pudo conectar al servidor. Revisa tu conexión a internet.";
+    }
+    if (lower.includes("null value in column") && lower.includes("violates not-null constraint")) {
+      const match = msg.match(/column "([^"]+)"/);
+      const col = match ? match[1] : "";
+      return `Falta rellenar un campo obligatorio: ${col || "revisa el formulario"}.`;
+    }
+    if (lower.includes("violates foreign key constraint")) {
+      return "No se puede eliminar este elemento porque está relacionado con otros datos en el sistema.";
+    }
+    if (lower.includes("jwt expired") || lower.includes("invalid jwt")) {
+      return "Tu sesión ha expirado. Por favor, cierra sesión e ingresa nuevamente.";
+    }
+    
+    return msg;
+  };
+
+  // Custom shadowed alert function that displays a toast notification with friendly messages
   const alert = (message: string) => {
-    const isError = message.toLowerCase().includes("error") || message.toLowerCase().includes("falló") || message.toLowerCase().includes("inexistente") || message.toLowerCase().includes("no existe");
-    setToast({ message, type: isError ? "error" : "success" });
+    const isError = message.toLowerCase().includes("error") || message.toLowerCase().includes("falló") || message.toLowerCase().includes("inexistente") || message.toLowerCase().includes("no existe") || message.toLowerCase().includes("denegado") || message.toLowerCase().includes("incorrecto");
+    
+    const friendlyMessage = getFriendlyMessage(message);
+    setToast({ message: friendlyMessage, type: isError ? "error" : "success" });
   };
 
   // Helper for async custom confirmation modal
@@ -459,8 +488,12 @@ export default function AdminPage() {
       if (updatedProducts) setInventory(updatedProducts as any);
       alert("¡Producto añadido con éxito!");
     } catch (error: any) {
-      console.error("Detalles del error:", error);
-      const errorMsg = error.message || error.details || JSON.stringify(error);
+      console.error("Detalles del error (completo):", error);
+      if (error && typeof error === 'object') {
+        const errorDetails = Object.getOwnPropertyNames(error).reduce((acc, key) => ({ ...acc, [key]: error[key] }), {});
+        console.error("Propiedades del error:", errorDetails);
+      }
+      const errorMsg = error.message || error.details || (typeof error === 'object' ? JSON.stringify(error) : String(error));
       alert(`Error al añadir el producto: ${errorMsg}`);
     } finally {
       setLoading(false);
