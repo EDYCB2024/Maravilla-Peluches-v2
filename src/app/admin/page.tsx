@@ -1271,7 +1271,7 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre <span className="text-error font-black text-xs">*</span></label>
                 <input
                   type="text"
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
@@ -1282,7 +1282,7 @@ export default function AdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($)</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($) <span className="text-error font-black text-xs">*</span></label>
                   <input
                     type="number"
                     className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
@@ -1417,7 +1417,7 @@ export default function AdminPage() {
               {/* Columna Derecha: Formulario */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre <span className="text-error font-black text-xs">*</span></label>
                   <input
                     type="text"
                     className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
@@ -1428,7 +1428,7 @@ export default function AdminPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($)</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($) <span className="text-error font-black text-xs">*</span></label>
                     <input
                       type="number"
                       className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
