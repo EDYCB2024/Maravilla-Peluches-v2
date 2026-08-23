@@ -97,9 +97,6 @@ export default async function HomePage({
             </div>
           )}
           <CartStatus />
-          <a className="text-[#5b5c5a] hover:scale-105 transition-transform duration-200 flex items-center" title="Panel de Administración" href="/admin">
-            <span className="material-symbols-outlined">settings_account_box</span>
-          </a>
         </div>
       </nav>
 
@@ -166,23 +163,6 @@ export default async function HomePage({
           </div>
         </section>
 
-        {/* Newsletter Section */}
-        <section className="px-8 py-20">
-          <div className="max-w-5xl mx-auto rounded-xl bg-primary-container/10 p-12 relative overflow-hidden flex flex-col items-center text-center">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl"></div>
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-secondary/10 rounded-full blur-3xl"></div>
-            <h2 className="text-4xl font-extrabold text-on-surface mb-4 tracking-tight">Siempre Tierno, Siempre Dulce.</h2>
-            <p className="text-on-surface-variant max-w-lg mb-8 text-lg">
-              Únete a la familia de Maravilla Peluches para acceso exclusivo a ediciones limitadas y consejos de cuidado.
-            </p>
-            <form className="flex flex-col md:flex-row w-full max-w-md gap-4">
-              <input className="flex-grow px-6 py-4 rounded-full bg-surface-container-lowest border-none focus:ring-2 focus:ring-primary shadow-sm outline-none text-on-surface" placeholder="Tu correo electrónico..." type="email" required />
-              <button className="px-8 py-4 rounded-full bg-primary text-on-primary font-bold shadow-lg hover:scale-105 transition-all" type="submit">
-                Suscribirse
-              </button>
-            </form>
-          </div>
-        </section>
       </main>
       {/* Footer */}
       <footer className="w-full py-20 mt-20 bg-[#f1f1ee] dark:bg-[#1a1a19] flex flex-col items-center justify-center gap-12 text-center font-plus-jakarta transition-colors border-t border-surface-variant/10">

@@ -99,6 +99,14 @@ const initialSuppliers = [
 ];
 
 export default function AdminPage() {
+  const [session, setSession] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
   const [activeTab, setActiveTab] = useState("catalogo");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -167,6 +175,22 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthChecked(true);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
     async function fetchAdminData() {
       try {
         const [productsRes, categoriesRes, suppliersRes, settingsRes, ordersRes, exchangeRes] = await Promise.all([
@@ -233,7 +257,25 @@ export default function AdminPage() {
     }
 
     fetchAdminData();
-  }, []);
+  }, [session]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError("");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password: loginPassword,
+    });
+    if (error) {
+      setLoginError("Correo o contraseña incorrectos");
+    }
+    setIsLoggingIn(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, productId: string) => {
     const file = e.target.files?.[0];
@@ -334,44 +376,44 @@ export default function AdminPage() {
         throw new Error("No se devolvieron datos después de la inserción. Verifica los permisos de Supabase.");
       }
 
-        // Inicializar inventario
-        const { error: invError } = await supabase.from("inventory").insert([{ product_id: data[0].id, quantity: newProduct.quantity }]);
-        if (invError) {
-          console.error("Error al inicializar inventario:", invError);
-          throw new Error(`Producto creado, pero error en inventario: ${invError.message}`);
-        }
+      // Inicializar inventario
+      const { error: invError } = await supabase.from("inventory").insert([{ product_id: data[0].id, quantity: newProduct.quantity }]);
+      if (invError) {
+        console.error("Error al inicializar inventario:", invError);
+        throw new Error(`Producto creado, pero error en inventario: ${invError.message}`);
+      }
 
-        // Si hay una imagen seleccionada, subirla
-        if (newProductImage && data[0]) {
-          const formData = new FormData();
-          formData.append("file", newProductImage);
-          formData.append("productId", data[0].id);
+      // Si hay una imagen seleccionada, subirla
+      if (newProductImage && data[0]) {
+        const formData = new FormData();
+        formData.append("file", newProductImage);
+        formData.append("productId", data[0].id);
 
-          try {
-            const uploadRes = await fetch("/api/upload", {
-              method: "POST",
-              body: formData,
-            });
-            if (!uploadRes.ok) {
-                const uploadData = await uploadRes.json();
-                throw new Error(uploadData.error || "Error al subir la imagen");
-            }
-          } catch (uploadError: any) {
-            console.error("Error uploading image:", uploadError);
-            alert(`El producto se creó, pero la foto no se pudo subir: ${uploadError.message}`);
+        try {
+          const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            throw new Error(uploadData.error || "Error al subir la imagen");
           }
+        } catch (uploadError: any) {
+          console.error("Error uploading image:", uploadError);
+          alert(`El producto se creó, pero la foto no se pudo subir: ${uploadError.message}`);
         }
+      }
 
-        setIsAddModalOpen(false);
-        setNewProduct({ name: "", price: 0, category_id: "", description: "", quantity: 0, size: "" });
-        setNewProductImage(null);
+      setIsAddModalOpen(false);
+      setNewProduct({ name: "", price: 0, category_id: "", description: "", quantity: 0, size: "" });
+      setNewProductImage(null);
 
-        // Refetch products
-        const { data: updatedProducts } = await supabase
-          .from("products")
-          .select("id, name, price, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary), is_active");
-        if (updatedProducts) setInventory(updatedProducts as any);
-        alert("¡Producto añadido con éxito!");
+      // Refetch products
+      const { data: updatedProducts } = await supabase
+        .from("products")
+        .select("id, name, price, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary), is_active");
+      if (updatedProducts) setInventory(updatedProducts as any);
+      alert("¡Producto añadido con éxito!");
     } catch (error: any) {
       console.error("Detalles del error:", error);
       const errorMsg = error.message || error.details || JSON.stringify(error);
@@ -386,7 +428,7 @@ export default function AdminPage() {
       alert("Nombre y Teléfono son obligatorios");
       return;
     }
-    
+
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -524,7 +566,7 @@ export default function AdminPage() {
         const { error: insError } = await supabase
           .from("inventory")
           .insert([{ product_id: editingProduct.id, quantity }]);
-        
+
         if (insError) {
           console.error("Error al crear registro de inventario:", insError);
           alert(`El registro de inventario no existe y no se pudo crear: ${insError.message}`);
@@ -533,12 +575,12 @@ export default function AdminPage() {
 
       setInventory(prev => prev.map(item =>
         item.id === editingProduct.id
-          ? { 
-              ...item, 
-              ...editingProduct, 
-              categories: categories.find(c => c.id === editingProduct.category_id),
-              inventory: [{ ...(item.inventory?.[0] || {}), quantity, status }]
-            }
+          ? {
+            ...item,
+            ...editingProduct,
+            categories: categories.find(c => c.id === editingProduct.category_id),
+            inventory: [{ ...(item.inventory?.[0] || {}), quantity, status }]
+          }
           : item
       ));
 
@@ -570,10 +612,10 @@ export default function AdminPage() {
         .select();
 
       if (error) throw error;
-      
+
       alert("Categoría añadida con éxito.");
       setNewCategoryName("");
-      
+
       // Refetch categories
       const { data: catData } = await supabase.from("categories").select("*");
       if (catData) setCategories(catData);
@@ -637,7 +679,7 @@ export default function AdminPage() {
       if (error) throw error;
 
       alert("Categoría eliminada con éxito.");
-      
+
       // Refetch categories & products
       const [catData, prodData] = await Promise.all([
         supabase.from("categories").select("*"),
@@ -826,7 +868,7 @@ export default function AdminPage() {
               const inv = Array.isArray(prod.inventory) ? prod.inventory[0] : prod.inventory;
               const currentQty = inv?.quantity ?? 0;
               const newQty = Math.max(0, currentQty - item.quantity);
-              
+
               await supabase
                 .from("inventory")
                 .update({ quantity: newQty })
@@ -877,7 +919,7 @@ export default function AdminPage() {
               const inv = Array.isArray(prod.inventory) ? prod.inventory[0] : prod.inventory;
               const currentQty = inv?.quantity ?? 0;
               const newQty = Math.max(0, currentQty - item.quantity);
-              
+
               await supabase
                 .from("inventory")
                 .update({ quantity: newQty })
@@ -889,7 +931,7 @@ export default function AdminPage() {
 
       alert("¡Venta registrada con éxito!");
       setIsAddOrderOpen(false);
-      
+
       // Reset form
       setNewOrderClient("");
       setNewOrderStatus("Pendiente");
@@ -946,10 +988,10 @@ export default function AdminPage() {
     if (!confirm("¿Seguro que quieres eliminar esta venta del sistema? Esta acción no se puede deshacer.")) return;
     try {
       setLoading(true);
-      
+
       // Delete order items first (due to foreign key constraints)
       await supabase.from("order_items").delete().eq("order_id", orderId);
-      
+
       // Delete order
       const { error } = await supabase.from("orders").delete().eq("id", orderId);
       if (error) throw error;
@@ -965,7 +1007,7 @@ export default function AdminPage() {
   };
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
+    const matchesSearch =
       order.client_name?.toLowerCase().includes(search.toLowerCase()) ||
       order.id?.toLowerCase().includes(search.toLowerCase()) ||
       order.order_items?.some(item => item.products?.name?.toLowerCase().includes(search.toLowerCase()));
@@ -976,11 +1018,46 @@ export default function AdminPage() {
     return matchesSearch && matchesDate;
   });
 
+
+
+  if (!authChecked) {
+    return <div className="min-h-screen flex items-center justify-center bg-surface font-plus-jakarta">Cargando...</div>;
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface font-plus-jakarta px-4">
+        <form className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.08)] w-full max-w-sm flex flex-col gap-4 border border-surface-variant/20 relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="flex justify-center mb-2">
+             <div className="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center shadow-[0_8px_20px_rgba(146,63,95,0.15)] z-10">
+               <span className="material-symbols-outlined text-on-primary-container text-3xl">pets</span>
+             </div>
+          </div>
+          <h2 className="text-2xl font-black text-center text-on-surface mb-2 z-10">Acceso Admin</h2>
+          {loginError && <p className="text-error text-sm text-center font-bold bg-error/10 p-3 rounded-xl z-10">{loginError}</p>}
+          <input type="email" placeholder="Correo Electrónico" required className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3.5 focus:ring-2 focus:ring-primary outline-none text-sm z-10" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
+          
+          <div className="relative w-full z-10">
+            <input type={showPassword ? "text" : "password"} placeholder="Contraseña" required className="w-full bg-surface-container-low border-none rounded-2xl pl-4 pr-12 py-3.5 focus:ring-2 focus:ring-primary outline-none text-sm" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center focus:outline-none" tabIndex={-1}>
+              <span className="material-symbols-outlined text-[20px]">{showPassword ? "visibility_off" : "visibility"}</span>
+            </button>
+          </div>
+          
+          <button onClick={handleLogin} disabled={isLoggingIn} className="w-full py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 mt-4 z-10">
+            {isLoggingIn ? "Verificando..." : "Iniciar Sesión"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-surface text-on-surface antialiased flex min-h-screen font-plus-jakarta relative">
       {/* SideNavBar Drawer Backdrop for Mobile */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/45 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -1033,14 +1110,19 @@ export default function AdminPage() {
           ))}
         </nav>
 
-        <div className="mt-auto px-6 py-4 flex items-center gap-3 border-t border-surface-variant/20">
-          <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
-            <span className="material-symbols-outlined">person</span>
+        <div className="mt-auto px-6 py-4 flex items-center justify-between border-t border-surface-variant/20">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+              <span className="material-symbols-outlined">person</span>
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs font-bold text-on-surface truncate">Admin MP</p>
+              <p className="text-[10px] text-on-surface-variant uppercase tracking-tighter">Administrador</p>
+            </div>
           </div>
-          <div className="overflow-hidden">
-            <p className="text-xs font-bold text-on-surface truncate">Admin MP</p>
-            <p className="text-[10px] text-on-surface-variant uppercase tracking-tighter">Administrador</p>
-          </div>
+          <button onClick={handleLogout} className="w-9 h-9 rounded-full bg-surface-container hover:bg-error/10 hover:text-error text-on-surface-variant flex items-center justify-center transition-all shadow-sm" title="Cerrar sesión">
+            <span className="material-symbols-outlined text-[18px]">logout</span>
+          </button>
         </div>
       </aside>
 
@@ -1048,7 +1130,7 @@ export default function AdminPage() {
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-surface-container-lowest rounded-[2rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300 relative max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               onClick={() => setIsAddModalOpen(false)}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
@@ -1072,9 +1154,9 @@ export default function AdminPage() {
                     className="flex flex-col items-center justify-center w-full h-full bg-surface-container-low rounded-[2rem] border-2 border-dashed border-primary/20 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer overflow-hidden"
                   >
                     {newProductImage ? (
-                      <img 
-                        src={URL.createObjectURL(newProductImage)} 
-                        alt="Preview" 
+                      <img
+                        src={URL.createObjectURL(newProductImage)}
+                        alt="Preview"
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -1085,7 +1167,7 @@ export default function AdminPage() {
                     )}
                   </label>
                   {newProductImage && (
-                    <button 
+                    <button
                       onClick={(e) => { e.preventDefault(); setNewProductImage(null); }}
                       className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-error text-white flex items-center justify-center shadow-lg hover:scale-110 transition-all z-10"
                     >
@@ -1185,7 +1267,7 @@ export default function AdminPage() {
       {isEditModalOpen && editingProduct && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-3xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               onClick={() => { setIsEditModalOpen(false); setEditingProduct(null); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
@@ -1195,12 +1277,12 @@ export default function AdminPage() {
               <span className="material-symbols-outlined text-primary">edit</span>
               Editar Producto
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8">
               {/* Columna Izquierda: Imagen y Acciones de Imagen */}
               <div className="space-y-4">
                 <div className="relative group w-full aspect-square rounded-3xl bg-surface-container-low overflow-hidden shadow-sm border border-primary/10">
-                  <img 
+                  <img
                     src={editingProduct.product_images?.find((img: any) => img.is_primary)?.url || editingProduct.product_images?.[0]?.url || `/images/${editingProduct.id}.jpg?v=${refreshKey}`}
                     alt={editingProduct.name}
                     className="w-full h-full object-cover"
@@ -1226,7 +1308,7 @@ export default function AdminPage() {
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleUpload(e, editingProduct.id)} />
                   </label>
                 </div>
-                
+
                 <div className="pt-4 border-t border-error/10">
                   <p className="text-[9px] font-black uppercase tracking-widest text-error/60 mb-2 text-center">Zona de Peligro</p>
                   <button
@@ -1341,13 +1423,13 @@ export default function AdminPage() {
       {isManageCategoriesOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               onClick={() => { setIsManageCategoriesOpen(false); setEditingCategoryId(null); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
-            
+
             <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">category</span>
               Gestionar Categorías
@@ -1375,8 +1457,8 @@ export default function AdminPage() {
             {/* Listado de Categorías */}
             <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
               {categories.map((c) => (
-                <div 
-                  key={c.id} 
+                <div
+                  key={c.id}
                   className="flex items-center justify-between p-3.5 bg-surface-container-low/40 rounded-2xl border border-surface-container/30 hover:border-surface-container transition-colors"
                 >
                   {editingCategoryId === c.id ? (
@@ -1435,7 +1517,7 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-md" onClick={() => setIsSupplierModalOpen(false)} />
           <div className="relative bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               onClick={() => setIsSupplierModalOpen(false)}
               className="absolute top-6 right-6 w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error hover:text-white transition-all"
             >
@@ -1453,7 +1535,7 @@ export default function AdminPage() {
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                   placeholder="Ej. Distribuidora Polar"
                   value={newSupplier.name}
-                  onChange={(e) => setNewSupplier({...newSupplier, name: e.target.value})}
+                  onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
                 />
               </div>
               <div>
@@ -1463,7 +1545,7 @@ export default function AdminPage() {
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                   placeholder="Ciudad, Estado o Dirección"
                   value={newSupplier.location}
-                  onChange={(e) => setNewSupplier({...newSupplier, location: e.target.value})}
+                  onChange={(e) => setNewSupplier({ ...newSupplier, location: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-1 gap-4">
@@ -1474,7 +1556,7 @@ export default function AdminPage() {
                     className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                     placeholder="Ej. 0412-1234567"
                     value={newSupplier.phone}
-                    onChange={(e) => setNewSupplier({...newSupplier, phone: e.target.value})}
+                    onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })}
                   />
                 </div>
               </div>
@@ -1484,7 +1566,7 @@ export default function AdminPage() {
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none"
                   placeholder="Lista de productos principales..."
                   value={newSupplier.products}
-                  onChange={(e) => setNewSupplier({...newSupplier, products: e.target.value})}
+                  onChange={(e) => setNewSupplier({ ...newSupplier, products: e.target.value })}
                 />
               </div>
             </div>
@@ -1511,7 +1593,7 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-md" onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }} />
           <div className="relative bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error hover:text-white transition-all"
             >
@@ -1528,7 +1610,7 @@ export default function AdminPage() {
                   type="text"
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                   value={editingSupplier.name}
-                  onChange={(e) => setEditingSupplier({...editingSupplier, name: e.target.value})}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, name: e.target.value })}
                 />
               </div>
               <div>
@@ -1537,7 +1619,7 @@ export default function AdminPage() {
                   type="text"
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                   value={editingSupplier.location}
-                  onChange={(e) => setEditingSupplier({...editingSupplier, location: e.target.value})}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, location: e.target.value })}
                 />
               </div>
               <div>
@@ -1546,7 +1628,7 @@ export default function AdminPage() {
                   type="text"
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none font-mono"
                   value={editingSupplier.phone}
-                  onChange={(e) => setEditingSupplier({...editingSupplier, phone: e.target.value})}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, phone: e.target.value })}
                 />
               </div>
               <div>
@@ -1554,7 +1636,7 @@ export default function AdminPage() {
                 <textarea
                   className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none"
                   value={editingSupplier.products}
-                  onChange={(e) => setEditingSupplier({...editingSupplier, products: e.target.value})}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, products: e.target.value })}
                 />
               </div>
             </div>
@@ -1571,7 +1653,7 @@ export default function AdminPage() {
               >
                 Guardar Cambios
               </button>
-              
+
               <div className="pt-6 border-t border-error/10">
                 <button
                   onClick={() => handleDeleteSupplier(editingSupplier.id)}
@@ -1589,13 +1671,13 @@ export default function AdminPage() {
       {isOrderDetailsOpen && selectedOrder && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               onClick={() => { setIsOrderDetailsOpen(false); setSelectedOrder(null); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
-            
+
             <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">receipt_long</span>
               Detalle de Venta
@@ -1611,8 +1693,8 @@ export default function AdminPage() {
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Fecha</p>
                   <p className="text-xs font-bold text-on-surface">
-                    {new Date(selectedOrder.created_at).toLocaleString('es-ES', { 
-                      day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                    {new Date(selectedOrder.created_at).toLocaleString('es-ES', {
+                      day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
                     })}
                   </p>
                 </div>
@@ -1721,13 +1803,13 @@ export default function AdminPage() {
       {isAddOrderOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
-            <button 
+            <button
               onClick={() => { setIsAddOrderOpen(false); setNewOrderItems([]); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
-            
+
             <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">add_shopping_cart</span>
               Registrar Nueva Venta
@@ -1809,7 +1891,7 @@ export default function AdminPage() {
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-xs font-black uppercase tracking-[0.15em] text-primary">Productos en Venta</h4>
-                  <button 
+                  <button
                     onClick={() => setNewOrderItems([...newOrderItems, { product_id: "", quantity: 1 }])}
                     className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
                   >
@@ -1868,7 +1950,7 @@ export default function AdminPage() {
                             </span>
                           </div>
 
-                          <button 
+                          <button
                             onClick={() => {
                               setNewOrderItems(newOrderItems.filter((_, i) => i !== idx));
                             }}
@@ -1881,7 +1963,7 @@ export default function AdminPage() {
                       </div>
                     );
                   })}
-                  
+
                   {newOrderItems.length === 0 && (
                     <div className="text-center py-6 border border-dashed border-surface-container rounded-2xl text-xs text-on-surface-variant/60 italic">
                       No hay productos seleccionados. Haz clic en "Agregar Producto" para registrar ítems.
@@ -1938,13 +2020,13 @@ export default function AdminPage() {
       {isEditOrderOpen && editingOrder && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative">
-            <button 
+            <button
               onClick={() => { setIsEditOrderOpen(false); setEditingOrder(null); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
-            
+
             <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">edit</span>
               Editar Estado
@@ -1995,7 +2077,7 @@ export default function AdminPage() {
       <main className="md:ml-64 flex-1 p-4 md:p-8 lg:p-12 transition-all">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 md:mb-12">
           <div className="flex items-center gap-3 w-full md:w-auto">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(true)}
               className="md:hidden w-12 h-12 flex items-center justify-center rounded-xl bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-all"
               title="Menú"
@@ -2063,7 +2145,7 @@ export default function AdminPage() {
                   <p className="text-sm font-medium text-on-surface-variant mb-1">Poco Inventario</p>
                   <h3 className="text-3xl font-bold text-on-surface">{loading ? "..." : metrics.lowStock}</h3>
                 </div>
-                 </div>
+              </div>
             </section>
           </>
         )}
@@ -2093,11 +2175,10 @@ export default function AdminPage() {
                       <tr key={item.id} className="hover:bg-surface-container-low/30 transition-colors">
                         <td className="px-8 py-5 text-sm font-bold">{item.name}</td>
                         <td className="px-8 py-5">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${
-                            (Array.isArray(item.inventory) ? item.inventory[0]?.status : (item.inventory as any)?.status) === 'disponible' 
-                              ? 'bg-secondary-container text-on-secondary-container' 
-                              : 'bg-highlight-container text-on-highlight-container'
-                          }`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${(Array.isArray(item.inventory) ? item.inventory[0]?.status : (item.inventory as any)?.status) === 'disponible'
+                            ? 'bg-secondary-container text-on-secondary-container'
+                            : 'bg-highlight-container text-on-highlight-container'
+                            }`}>
                             {(Array.isArray(item.inventory) ? item.inventory[0]?.status : (item.inventory as any)?.status) || 'desconocido'}
                           </span>
                         </td>
@@ -2163,7 +2244,7 @@ export default function AdminPage() {
                   <h3 className="text-xl font-black text-on-surface">Gestión de Ventas</h3>
                   <p className="text-xs text-on-surface-variant">Monitorea y registra los pedidos realizados en tu tienda.</p>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setIsAddOrderOpen(true);
                     setNewOrderItems([{ product_id: "", quantity: 1 }]);
@@ -2203,11 +2284,11 @@ export default function AdminPage() {
                               #{order.id.slice(0, 8).toUpperCase()}
                             </td>
                             <td className="px-8 py-5 text-xs text-on-surface-variant">
-                              {new Date(order.created_at).toLocaleDateString('es-ES', { 
-                                day: '2-digit', 
-                                month: 'short', 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
+                              {new Date(order.created_at).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
                               })}
                             </td>
                             <td className="px-8 py-5 text-sm font-bold text-on-surface">
@@ -2236,7 +2317,7 @@ export default function AdminPage() {
                             </td>
                             <td className="px-8 py-5">
                               <div className="flex items-center justify-center gap-2">
-                                <button 
+                                <button
                                   onClick={() => {
                                     setSelectedOrder(order);
                                     setIsOrderDetailsOpen(true);
@@ -2246,7 +2327,7 @@ export default function AdminPage() {
                                 >
                                   <span className="material-symbols-outlined text-sm font-black">visibility</span>
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => {
                                     setEditingOrder(order);
                                     setNewOrderStatus(order.status);
@@ -2257,7 +2338,7 @@ export default function AdminPage() {
                                 >
                                   <span className="material-symbols-outlined text-sm font-black">edit</span>
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleDeleteOrder(order.id)}
                                   className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-all"
                                   title="Eliminar Venta"
@@ -2294,7 +2375,7 @@ export default function AdminPage() {
                 <h3 className="text-xl font-bold text-on-surface">Gestión de Proveedores</h3>
                 <p className="text-sm text-on-surface-variant">Directorio de aliados y suministros de la tienda.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsSupplierModalOpen(true)}
                 className="px-6 py-2 bg-primary text-on-primary rounded-full text-xs font-bold transition-all flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95"
               >
@@ -2314,11 +2395,11 @@ export default function AdminPage() {
                 </thead>
                 <tbody className="divide-y divide-surface-container">
                   {suppliers.map((supplier) => (
-                    <tr 
-                      key={supplier.id} 
+                    <tr
+                      key={supplier.id}
                       className="hover:bg-surface-container-low/30 transition-colors cursor-pointer group"
                       onClick={() => {
-                        setEditingSupplier({...supplier});
+                        setEditingSupplier({ ...supplier });
                         setIsEditSupplierModalOpen(true);
                       }}
                     >
@@ -2345,7 +2426,7 @@ export default function AdminPage() {
                 <h3 className="text-xl font-bold text-on-surface">Configuración de Pantalla Principal</h3>
                 <p className="text-sm text-on-surface-variant">Modifica la información de contacto y detalles generales de la tienda.</p>
               </div>
-              <button 
+              <button
                 onClick={handleUpdateSettings}
                 className="px-8 py-3 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
               >
@@ -2353,7 +2434,7 @@ export default function AdminPage() {
                 Guardar Cambios
               </button>
             </div>
-            
+
             <div className="p-8 max-w-4xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
@@ -2361,7 +2442,7 @@ export default function AdminPage() {
                     <span className="material-symbols-outlined text-sm">contact_support</span>
                     Contacto y Soporte
                   </h4>
-                  
+
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Correo Electrónico</label>
                     <div className="relative">
@@ -2370,7 +2451,7 @@ export default function AdminPage() {
                         type="email"
                         className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                         value={settings.email}
-                        onChange={(e) => setSettings({...settings, email: e.target.value})}
+                        onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                       />
                     </div>
                   </div>
@@ -2383,7 +2464,7 @@ export default function AdminPage() {
                         type="text"
                         className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none font-mono"
                         value={settings.phone}
-                        onChange={(e) => setSettings({...settings, phone: e.target.value})}
+                        onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
                       />
                     </div>
                   </div>
@@ -2396,7 +2477,7 @@ export default function AdminPage() {
                         type="text"
                         className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                         value={settings.instagram}
-                        onChange={(e) => setSettings({...settings, instagram: e.target.value})}
+                        onChange={(e) => setSettings({ ...settings, instagram: e.target.value })}
                       />
                     </div>
                   </div>
@@ -2415,7 +2496,7 @@ export default function AdminPage() {
                       <textarea
                         className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none"
                         value={settings.address}
-                        onChange={(e) => setSettings({...settings, address: e.target.value})}
+                        onChange={(e) => setSettings({ ...settings, address: e.target.value })}
                       />
                     </div>
                   </div>
@@ -2428,7 +2509,7 @@ export default function AdminPage() {
                         type="text"
                         className="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                         value={settings.working_hours}
-                        onChange={(e) => setSettings({...settings, working_hours: e.target.value})}
+                        onChange={(e) => setSettings({ ...settings, working_hours: e.target.value })}
                       />
                     </div>
                   </div>
@@ -2621,7 +2702,7 @@ function AdminProductCard({ item, onToggle, onToggleVisibility, onToggleHero, on
 
   const isVisible = item.is_visible !== false; // Default true
   const isHero = (item as any).is_hero === true;
-  
+
   // Obtener stock de forma robusta
   const invData = Array.isArray(item.inventory) ? item.inventory[0] : item.inventory;
   const stock = invData?.quantity;
