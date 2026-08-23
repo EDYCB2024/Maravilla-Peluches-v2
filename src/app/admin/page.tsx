@@ -168,12 +168,7 @@ export default function AdminPage() {
     });
   };
 
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
+
 
   const [activeTab, setActiveTab] = useState("catalogo");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
