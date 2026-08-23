@@ -36,7 +36,7 @@ export default async function HomePage({
   const currentCategory = resolvedParams.category || "Todos";
 
   // Fetch data on the server
-  const [productsRes, categoriesRes, exchangeRes, settingsRes] = await Promise.all([
+  const [productsRes, categoriesRes, exchangeRes, euroRes, settingsRes] = await Promise.all([
     supabase
       .from("products")
       .select(`
@@ -47,10 +47,12 @@ export default async function HomePage({
       `),
     supabase.from("categories").select("*"),
     fetch("https://ve.dolarapi.com/v1/dolares/oficial", { cache: 'no-store' }).then(res => res.json()).catch(() => null),
+    fetch("https://ve.dolarapi.com/v1/euros/oficial", { cache: 'no-store' }).then(res => res.json()).catch(() => null),
     supabase.from("settings").select("*").single()
   ]);
 
   const dollarRate = exchangeRes?.promedio || 0;
+  const euroRate = euroRes?.promedio || 0;
   const siteSettings = settingsRes.data || {
     email: "maravillapeluches@gmail.com",
     phone: "+58 412 123 4567",
@@ -72,7 +74,7 @@ export default async function HomePage({
 
   return (
     <div className="bg-surface text-on-surface">
-      <CartSidebar dollarRate={dollarRate} />
+      <CartSidebar dollarRate={euroRate} />
       {/* TopNavBar */}
       <nav className="fixed top-0 w-full z-50 bg-[#f7f6f3]/70 dark:bg-[#1a1a19]/70 backdrop-blur-md shadow-[0_12px_40px_rgba(146,63,95,0.08)] h-20 flex justify-between items-center px-8 font-plus-jakarta tracking-tight">
         <a
@@ -88,10 +90,10 @@ export default async function HomePage({
           <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Nosotros</a>
         </div>
         <div className="flex items-center gap-6">
-          {dollarRate > 0 && (
+          {euroRate > 0 && (
             <div className="hidden sm:flex flex-col items-end border-r border-on-surface/10 pr-6 mr-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">Tasa BCV</span>
-              <span className="text-sm font-black text-primary">Bs. {dollarRate.toFixed(2)}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">Euro BCV</span>
+              <span className="text-sm font-black text-primary">Bs. {euroRate.toFixed(2)}</span>
             </div>
           )}
           <CartStatus />
@@ -146,7 +148,7 @@ export default async function HomePage({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
             {filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} dollarRate={dollarRate} />
+                <ProductCard key={product.id} product={product} dollarRate={euroRate} />
               ))
             ) : (
               <div className="col-span-full py-20 flex flex-col items-center gap-4">

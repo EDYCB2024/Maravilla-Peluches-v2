@@ -3,13 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-const initialOrders = [
-  { id: "#SB-9021", client: "Alice Moon", initial: "AM", product: "Velvet Cloud Teddy", amount: "$45.00", status: "Enviado", statusClass: "bg-[#e4f5ff] text-[#2b5e71]" },
-  { id: "#SB-9022", client: "Julian Day", initial: "JD", product: "Cotton Marshmallow Fox", amount: "$38.50", status: "Processing", statusClass: "bg-primary-container/20 text-primary" },
-  { id: "#SB-9023", client: "Sarah Kim", initial: "SK", product: "Midnight Bunny (Ltd.)", amount: "$120.00", status: "On Hold", statusClass: "bg-error-container/20 text-error" },
-  { id: "#SB-9024", client: "Riley Blue", initial: "RB", product: "Peach Fuzz Lamb", amount: "$52.00", status: "Delivered", statusClass: "bg-[#e4f5ff] text-[#2b5e71]" },
-];
-
 interface InventoryItem {
   id: string;
   name: string;
@@ -27,10 +20,77 @@ interface InventoryItem {
   product_images?: { url: string; alt_text: string; is_primary: boolean }[];
 }
 
+interface OrderItemDetail {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  price_at_purchase: number;
+  products?: {
+    id: string;
+    name: string;
+  };
+}
+
+interface Order {
+  id: string;
+  client_name: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  order_items?: OrderItemDetail[];
+  tasa_dia?: number;
+  payment_method?: string;
+  notes?: string;
+}
+
 interface Category {
   id: string;
   name: string;
 }
+
+const mockOrders: Order[] = [
+  {
+    id: "9021",
+    client_name: "Alice Moon",
+    total_amount: 45.00,
+    status: "Enviado",
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    order_items: [
+      { id: "oi-1", order_id: "9021", product_id: "p-1", quantity: 1, price_at_purchase: 45.00, products: { id: "p-1", name: "Velvet Cloud Teddy" } }
+    ]
+  },
+  {
+    id: "9022",
+    client_name: "Julian Day",
+    total_amount: 38.50,
+    status: "Procesando",
+    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+    order_items: [
+      { id: "oi-2", order_id: "9022", product_id: "p-2", quantity: 1, price_at_purchase: 38.50, products: { id: "p-2", name: "Cotton Marshmallow Fox" } }
+    ]
+  },
+  {
+    id: "9023",
+    client_name: "Sarah Kim",
+    total_amount: 120.00,
+    status: "En espera",
+    created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+    order_items: [
+      { id: "oi-3", order_id: "9023", product_id: "p-3", quantity: 1, price_at_purchase: 120.00, products: { id: "p-3", name: "Midnight Bunny (Ltd.)" } }
+    ]
+  },
+  {
+    id: "9024",
+    client_name: "Riley Blue",
+    total_amount: 52.00,
+    status: "Entregado",
+    created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+    order_items: [
+      { id: "oi-4", order_id: "9024", product_id: "p-4", quantity: 1, price_at_purchase: 52.00, products: { id: "p-4", name: "Peach Fuzz Lamb" } }
+    ]
+  }
+];
 
 const initialSuppliers = [
   { id: "1", name: "Peluches del Norte", location: "Caracas, Av. Urdaneta", phone: "0412-1234567", products: "Peluches Gigantes, Almohadas" },
@@ -40,18 +100,27 @@ const initialSuppliers = [
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("catalogo");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [euroRate, setEuroRate] = useState(0);
+  const [newOrderTasaDia, setNewOrderTasaDia] = useState(0);
+  const [registerIndividually, setRegisterIndividually] = useState(false);
+  const [newOrderPaymentMethod, setNewOrderPaymentMethod] = useState("Efectivo Divisas");
   const [suppliers, setSuppliers] = useState(initialSuppliers);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
-  const [metrics, setMetrics] = useState({ totalProducts: 0, activeOrders: 142, lowStock: 0 });
+  const [metrics, setMetrics] = useState({ totalProducts: 0, activeOrders: 0, lowStock: 0 });
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [isEditSupplierModalOpen, setIsEditSupplierModalOpen] = useState(false);
+  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
   const [newProduct, setNewProduct] = useState({ name: "", price: 0, category_id: "", description: "", quantity: 0, size: "" });
   const [newSupplier, setNewSupplier] = useState({ name: "", location: "", phone: "", products: "" });
   const [newProductImage, setNewProductImage] = useState<File | null>(null);
@@ -66,32 +135,64 @@ export default function AdminPage() {
     working_hours: ""
   });
 
+  // Sales/Orders section state variables
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
+  const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
+  const [isEditOrderOpen, setIsEditOrderOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+
+  // Form states for manual orders
+  const [newOrderClient, setNewOrderClient] = useState("");
+  const [newOrderStatus, setNewOrderStatus] = useState("Pendiente");
+  const [newOrderNotes, setNewOrderNotes] = useState("");
+  const [newOrderItems, setNewOrderItems] = useState<{ product_id: string; quantity: number }[]>([]);
+
+  // Selected date filter state (empty means show all days)
+  const [selectedDate, setSelectedDate] = useState<string>("");
+
+  // Helper to generate the last 7 calendar days
+  const getLast7Days = () => {
+    const days = [];
+    const options: Intl.DateTimeFormatOptions = { weekday: 'short' };
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dayName = d.toLocaleDateString('es-ES', options).replace('.', '');
+      const dayNum = d.getDate();
+      days.push({ dateStr, dayName, dayNum });
+    }
+    return days;
+  };
 
   useEffect(() => {
     async function fetchAdminData() {
       try {
-        const [productsRes, categoriesRes, suppliersRes, settingsRes] = await Promise.all([
+        const [productsRes, categoriesRes, suppliersRes, settingsRes, ordersRes, exchangeRes] = await Promise.all([
           supabase
             .from("products")
             .select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
           supabase.from("categories").select("*"),
           supabase.from("suppliers").select("*"),
-          supabase.from("settings").select("*").single()
+          supabase.from("settings").select("*").single(),
+          supabase.from("orders").select("*, order_items(*, products(*))").order("created_at", { ascending: false }),
+          fetch("https://ve.dolarapi.com/v1/euros/oficial").then(res => res.json()).catch(() => null)
         ]);
+
+        let totalProductsCount = 0;
+        let lowStockCount = 0;
 
         if (productsRes.data) {
           const items = (productsRes.data as unknown as InventoryItem[])
             .sort((a, b) => a.name.localeCompare(b.name));
           setInventory(items);
-          setMetrics({
-            totalProducts: items.length,
-            activeOrders: 142,
-            lowStock: items.filter(item => {
-              const inv = Array.isArray(item.inventory) ? item.inventory[0] : item.inventory;
-              const qty = inv?.quantity ?? 0;
-              return qty > 0 && qty <= 5;
-            }).length
-          });
+          totalProductsCount = items.length;
+          lowStockCount = items.filter(item => {
+            const inv = Array.isArray(item.inventory) ? item.inventory[0] : item.inventory;
+            const qty = inv?.quantity ?? 0;
+            return qty > 0 && qty <= 5;
+          }).length;
         }
 
         if (categoriesRes.data) {
@@ -105,6 +206,25 @@ export default function AdminPage() {
         if (settingsRes.data) {
           setSettings(settingsRes.data);
         }
+
+        const dbOrders = (ordersRes.data && ordersRes.data.length > 0)
+          ? (ordersRes.data as unknown as Order[])
+          : mockOrders;
+        setOrders(dbOrders);
+
+        const activeOrdersCount = dbOrders.filter(o => o.status !== "Entregado" && o.status !== "Cancelado").length;
+
+        setMetrics({
+          totalProducts: totalProductsCount,
+          activeOrders: activeOrdersCount,
+          lowStock: lowStockCount
+        });
+
+        const rate = exchangeRes?.promedio || 0;
+        const roundedRate = Math.round(rate * 100) / 100;
+        setEuroRate(roundedRate);
+        setNewOrderTasaDia(roundedRate);
+
       } catch (error) {
         console.error("Error fetching admin data:", error);
       } finally {
@@ -436,6 +556,107 @@ export default function AdminPage() {
     }
   };
 
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      alert("El nombre de la categoría es obligatorio.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const slug = newCategoryName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const { data, error } = await supabase
+        .from("categories")
+        .insert([{ name: newCategoryName.trim(), slug }])
+        .select();
+
+      if (error) throw error;
+      
+      alert("Categoría añadida con éxito.");
+      setNewCategoryName("");
+      
+      // Refetch categories
+      const { data: catData } = await supabase.from("categories").select("*");
+      if (catData) setCategories(catData);
+    } catch (e: any) {
+      console.error("Error adding category:", e);
+      alert(`Error al añadir categoría: ${e.message || JSON.stringify(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateCategory = async (id: string) => {
+    if (!editingCategoryName.trim()) {
+      alert("El nombre de la categoría es obligatorio.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const slug = editingCategoryName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const { error } = await supabase
+        .from("categories")
+        .update({ name: editingCategoryName.trim(), slug })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      alert("Categoría actualizada con éxito.");
+      setEditingCategoryId(null);
+      setEditingCategoryName("");
+
+      // Refetch categories & products to sync labels
+      const [catData, prodData] = await Promise.all([
+        supabase.from("categories").select("*"),
+        supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
+      ]);
+
+      if (catData.data) setCategories(catData.data);
+      if (prodData.data) {
+        const items = (prodData.data as unknown as InventoryItem[]).sort((a, b) => a.name.localeCompare(b.name));
+        setInventory(items);
+      }
+    } catch (e: any) {
+      console.error("Error updating category:", e);
+      alert(`Error al actualizar categoría: ${e.message || JSON.stringify(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar la categoría "${name}"? Esto podría afectar a los productos asociados.`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("categories")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      alert("Categoría eliminada con éxito.");
+      
+      // Refetch categories & products
+      const [catData, prodData] = await Promise.all([
+        supabase.from("categories").select("*"),
+        supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
+      ]);
+
+      if (catData.data) setCategories(catData.data);
+      if (prodData.data) {
+        const items = (prodData.data as unknown as InventoryItem[]).sort((a, b) => a.name.localeCompare(b.name));
+        setInventory(items);
+      }
+    } catch (e: any) {
+      console.error("Error deleting category:", e);
+      alert(`Error al eliminar categoría: ${e.message || JSON.stringify(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteProduct = async () => {
     if (!editingProduct) return;
 
@@ -552,16 +773,221 @@ export default function AdminPage() {
     }
   };
 
-  const filteredOrders = orders.filter(order =>
-    order.client.toLowerCase().includes(search.toLowerCase()) ||
-    order.id.toLowerCase().includes(search.toLowerCase()) ||
-    order.product.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleAddOrder = async () => {
+    if (newOrderItems.length === 0 || newOrderItems.some(item => !item.product_id)) {
+      alert("Debes agregar al menos un producto válido.");
+      return;
+    }
+
+    if (!newOrderTasaDia || newOrderTasaDia <= 0) {
+      alert("La tasa del día es obligatoria y debe ser mayor a 0.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (registerIndividually) {
+        // Registrar cada producto como una venta individual
+        for (const item of newOrderItems) {
+          const prod = inventory.find(p => p.id === item.product_id);
+          const itemTotal = prod ? prod.price * item.quantity : 0;
+
+          const { data: orderData, error: orderError } = await supabase
+            .from("orders")
+            .insert([{
+              client_name: newOrderClient.trim() || "Cliente General",
+              status: newOrderStatus,
+              total_amount: itemTotal,
+              tasa_dia: newOrderTasaDia,
+              payment_method: newOrderPaymentMethod,
+              notes: newOrderNotes.trim() || null
+            }])
+            .select();
+
+          if (orderError) throw orderError;
+
+          if (orderData && orderData[0]) {
+            const orderId = orderData[0].id;
+
+            // Registrar el item de la orden
+            const { error: itemError } = await supabase
+              .from("order_items")
+              .insert([{
+                order_id: orderId,
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price_at_purchase: prod ? prod.price : 0
+              }]);
+            if (itemError) throw itemError;
+
+            // Actualizar inventario
+            if (prod) {
+              const inv = Array.isArray(prod.inventory) ? prod.inventory[0] : prod.inventory;
+              const currentQty = inv?.quantity ?? 0;
+              const newQty = Math.max(0, currentQty - item.quantity);
+              
+              await supabase
+                .from("inventory")
+                .update({ quantity: newQty })
+                .eq("product_id", item.product_id);
+            }
+          }
+        }
+      } else {
+        // Registro normal (una sola venta para todos los productos)
+        const total = newOrderItems.reduce((acc, item) => {
+          const prod = inventory.find(p => p.id === item.product_id);
+          return acc + (prod ? prod.price * item.quantity : 0);
+        }, 0);
+
+        const { data: orderData, error: orderError } = await supabase
+          .from("orders")
+          .insert([{
+            client_name: newOrderClient.trim() || "Cliente General",
+            status: newOrderStatus,
+            total_amount: total,
+            tasa_dia: newOrderTasaDia,
+            payment_method: newOrderPaymentMethod,
+            notes: newOrderNotes.trim() || null
+          }])
+          .select();
+
+        if (orderError) throw orderError;
+
+        if (orderData && orderData[0]) {
+          const orderId = orderData[0].id;
+
+          const itemsToInsert = newOrderItems.map(item => {
+            const prod = inventory.find(p => p.id === item.product_id);
+            return {
+              order_id: orderId,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              price_at_purchase: prod ? prod.price : 0
+            };
+          });
+
+          const { error: itemsError } = await supabase.from("order_items").insert(itemsToInsert);
+          if (itemsError) throw itemsError;
+
+          for (const item of newOrderItems) {
+            const prod = inventory.find(p => p.id === item.product_id);
+            if (prod) {
+              const inv = Array.isArray(prod.inventory) ? prod.inventory[0] : prod.inventory;
+              const currentQty = inv?.quantity ?? 0;
+              const newQty = Math.max(0, currentQty - item.quantity);
+              
+              await supabase
+                .from("inventory")
+                .update({ quantity: newQty })
+                .eq("product_id", item.product_id);
+            }
+          }
+        }
+      }
+
+      alert("¡Venta registrada con éxito!");
+      setIsAddOrderOpen(false);
+      
+      // Reset form
+      setNewOrderClient("");
+      setNewOrderStatus("Pendiente");
+      setNewOrderTasaDia(euroRate);
+      setNewOrderPaymentMethod("Efectivo Divisas");
+      setNewOrderNotes("");
+      setNewOrderItems([]);
+      setRegisterIndividually(false);
+
+      // Refetch orders and products to sync inventory
+      const [ordersRes, productsRes] = await Promise.all([
+        supabase.from("orders").select("*, order_items(*, products(*))").order("created_at", { ascending: false }),
+        supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
+      ]);
+
+      if (ordersRes.data) {
+        setOrders(ordersRes.data as unknown as Order[]);
+      }
+      if (productsRes.data) {
+        const items = (productsRes.data as unknown as InventoryItem[]).sort((a, b) => a.name.localeCompare(b.name));
+        setInventory(items);
+      }
+    } catch (e: any) {
+      console.error("Error adding order:", e);
+      alert(`Error al registrar la venta: ${e.message || JSON.stringify(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: newStatus })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      setIsEditOrderOpen(false);
+      setEditingOrder(null);
+      alert("Estado de pedido actualizado.");
+    } catch (e: any) {
+      console.error("Error updating order status:", e);
+      alert(`Error al actualizar estado: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("¿Seguro que quieres eliminar esta venta del sistema? Esta acción no se puede deshacer.")) return;
+    try {
+      setLoading(true);
+      
+      // Delete order items first (due to foreign key constraints)
+      await supabase.from("order_items").delete().eq("order_id", orderId);
+      
+      // Delete order
+      const { error } = await supabase.from("orders").delete().eq("id", orderId);
+      if (error) throw error;
+
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+      alert("Venta eliminada del sistema.");
+    } catch (e: any) {
+      console.error("Error deleting order:", e);
+      alert(`Error al eliminar venta: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      order.client_name?.toLowerCase().includes(search.toLowerCase()) ||
+      order.id?.toLowerCase().includes(search.toLowerCase()) ||
+      order.order_items?.some(item => item.products?.name?.toLowerCase().includes(search.toLowerCase()));
+
+    const orderDateStr = order.created_at?.split('T')[0];
+    const matchesDate = selectedDate === "" || orderDateStr === selectedDate;
+
+    return matchesSearch && matchesDate;
+  });
 
   return (
-    <div className="bg-surface text-on-surface antialiased flex min-h-screen font-plus-jakarta">
+    <div className="bg-surface text-on-surface antialiased flex min-h-screen font-plus-jakarta relative">
+      {/* SideNavBar Drawer Backdrop for Mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/45 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* SideNavBar */}
-      <aside className="h-screen w-64 fixed left-0 top-0 bg-[#f1f1ee] dark:bg-[#1a1a19] flex flex-col py-6 gap-2 z-50 transition-colors">
+      <aside className={`h-screen w-64 fixed left-0 top-0 bg-[#f1f1ee] dark:bg-[#1a1a19] flex flex-col py-6 gap-2 z-50 transition-transform duration-300 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-colors`}>
         <div className="px-6 mb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center shadow-[0_8px_20px_rgba(146,63,95,0.15)]">
@@ -580,6 +1006,7 @@ export default function AdminPage() {
             { id: "inicio", label: "Inicio", icon: "dashboard" },
             { id: "catalogo", label: "Catálogo", icon: "auto_stories" },
             { id: "inventario", label: "Inventario", icon: "inventory_2" },
+            { id: "ventas", label: "Ventas", icon: "shopping_cart" },
             { id: "proveedores", label: "Proveedores", icon: "factory" },
             { id: "clientes", label: "Clientes", icon: "group" },
             { id: "analisis", label: "Análisis", icon: "leaderboard" },
@@ -595,6 +1022,7 @@ export default function AdminPage() {
               onClick={(e) => {
                 e.preventDefault();
                 setActiveTab(tab.id);
+                setIsSidebarOpen(false);
               }}
             >
               <span className="material-symbols-outlined" style={{ fontVariationSettings: activeTab === tab.id ? "'FILL' 1" : "" }}>
@@ -619,7 +1047,7 @@ export default function AdminPage() {
       {/* Modal Añadir Producto */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-container-lowest rounded-[2rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300 relative">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300 relative max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setIsAddModalOpen(false)}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
@@ -677,12 +1105,12 @@ export default function AdminPage() {
                   placeholder="Ej. Stitch Galáctico"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($)</label>
                   <input
                     type="number"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
                     value={newProduct.price === 0 ? "" : newProduct.price}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -694,12 +1122,22 @@ export default function AdminPage() {
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Cantidad</label>
                   <input
                     type="number"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
                     value={newProduct.quantity === 0 ? "" : newProduct.quantity}
                     onChange={(e) => {
                       const val = e.target.value;
                       setNewProduct({ ...newProduct, quantity: val === "" ? 0 : parseInt(val) });
                     }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño</label>
+                  <input
+                    type="text"
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                    placeholder="Ej: 30cm"
+                    value={newProduct.size}
+                    onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
                   />
                 </div>
                 <div>
@@ -716,37 +1154,25 @@ export default function AdminPage() {
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Descripción</label>
-                <div className="grid grid-cols-[1fr_auto] gap-4">
-                  <textarea
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-20 resize-none text-sm"
-                    value={newProduct.description}
-                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                    placeholder="Detalles del producto..."
-                  />
-                  <div className="w-32">
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño</label>
-                    <input
-                      type="text"
-                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                      placeholder="Ej: 30cm"
-                      value={newProduct.size}
-                      onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
-                    />
-                  </div>
-                </div>
+                <textarea
+                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none text-sm"
+                  value={newProduct.description}
+                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                  placeholder="Detalles del producto..."
+                />
               </div>
             </div>
             <div className="flex gap-4 mt-8">
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="flex-1 py-4 rounded-full font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
+                className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAddProduct}
                 disabled={!newProduct.name || !newProduct.price}
-                className="flex-1 py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
               >
                 {loading ? "Guardando..." : "Guardar"}
               </button>
@@ -758,7 +1184,7 @@ export default function AdminPage() {
       {/* Modal Editar Producto */}
       {isEditModalOpen && editingProduct && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-3xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => { setIsEditModalOpen(false); setEditingProduct(null); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
@@ -769,11 +1195,11 @@ export default function AdminPage() {
               <span className="material-symbols-outlined text-primary">edit</span>
               Editar Producto
             </h3>
-            <div className="space-y-4">
-            {/* Header con Imagen y Controles */}
-            <div className="flex items-center gap-6 mb-8 p-4 bg-surface-container-low/30 rounded-[2rem] border border-surface-container">
-              <div className="relative group flex-shrink-0">
-                <div className="w-24 h-24 rounded-2xl bg-surface-container-low overflow-hidden shadow-sm border border-primary/10 relative">
+            
+            <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8">
+              {/* Columna Izquierda: Imagen y Acciones de Imagen */}
+              <div className="space-y-4">
+                <div className="relative group w-full aspect-square rounded-3xl bg-surface-container-low overflow-hidden shadow-sm border border-primary/10">
                   <img 
                     src={editingProduct.product_images?.find((img: any) => img.is_primary)?.url || editingProduct.product_images?.[0]?.url || `/images/${editingProduct.id}.jpg?v=${refreshKey}`}
                     alt={editingProduct.name}
@@ -785,136 +1211,220 @@ export default function AdminPage() {
                   {/* Floating Delete Photo Button */}
                   <button
                     onClick={() => handleDeletePhoto(editingProduct.id)}
-                    className="absolute top-1 right-1 w-7 h-7 bg-white/90 dark:bg-black/50 text-error rounded-full flex items-center justify-center shadow-md hover:bg-error hover:text-white transition-all backdrop-blur-sm border border-error/20"
+                    className="absolute top-3 right-3 w-8 h-8 bg-white/90 dark:bg-black/50 text-error rounded-full flex items-center justify-center shadow-md hover:bg-error hover:text-white transition-all backdrop-blur-sm border border-error/20"
                     title="Eliminar Foto"
                   >
-                    <span className="material-symbols-outlined text-xs">delete</span>
+                    <span className="material-symbols-outlined text-sm">delete</span>
                   </button>
                 </div>
-              </div>
-              
-              <div className="flex-1 space-y-2">
-                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Gestión de Imagen</p>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleUseAsHero(editingProduct.id)}
-                    className="w-full bg-primary/5 text-primary text-[9px] font-black py-2 rounded-xl hover:bg-primary/10 transition-all flex items-center justify-center gap-2 border border-primary/5"
-                  >
-                    <span className="material-symbols-outlined text-sm">star</span>
-                    ESTABLECER COMO PORTADA
-                  </button>
-                  <label className="w-full cursor-pointer bg-secondary/5 text-secondary text-[9px] font-black py-2 rounded-xl hover:bg-secondary/10 transition-all flex items-center justify-center gap-2 border border-secondary/5">
+
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1 text-center">Gestión de Imagen</p>
+                  <label className="w-full cursor-pointer bg-secondary/5 text-secondary text-[10px] font-black py-3 rounded-2xl hover:bg-secondary/10 transition-all flex items-center justify-center gap-2 border border-secondary/10">
                     <span className="material-symbols-outlined text-sm">upload</span>
                     CAMBIAR FOTOGRAFÍA
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleUpload(e, editingProduct.id)} />
                   </label>
                 </div>
-              </div>
-            </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre</label>
-                <input
-                  type="text"
-                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
-                  value={editingProduct.name}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($)</label>
-                  <input
-                    type="number"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
-                    value={editingProduct.price === 0 ? "" : editingProduct.price}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditingProduct({ ...editingProduct, price: val === "" ? 0 : parseFloat(val) });
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Stock</label>
-                  <input
-                    type="number"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
-                    value={(editingProduct.inventory?.[0]?.quantity === 0) ? "" : (editingProduct.inventory?.[0]?.quantity || 0)}
-                    onChange={(e) => {
-                      const currentInv = editingProduct.inventory;
-                      const newInv = Array.isArray(currentInv) ? [...currentInv] : [];
-                      const val = e.target.value;
-                      const qty = val === "" ? 0 : parseInt(val);
-                      if (newInv[0]) {
-                        newInv[0] = { ...newInv[0], quantity: qty };
-                      } else {
-                        newInv[0] = { quantity: qty };
-                      }
-                      setEditingProduct({ ...editingProduct, inventory: newInv });
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Categoría</label>
-                  <select
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                    value={editingProduct.category_id}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, category_id: e.target.value })}
+                
+                <div className="pt-4 border-t border-error/10">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-error/60 mb-2 text-center">Zona de Peligro</p>
+                  <button
+                    onClick={() => handleDeleteProduct()}
+                    className="w-full py-2.5 bg-error/5 hover:bg-[#ba1a1a] text-error hover:text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-error/10 hover:border-error"
                   >
-                    <option value="">...</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                    <span className="material-symbols-outlined text-sm">delete_forever</span>
+                    Eliminar Producto
+                  </button>
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Descripción</label>
-                <div className="grid grid-cols-[1fr_auto] gap-4">
-                  <textarea
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none"
-                    value={editingProduct.description || ""}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+
+              {/* Columna Derecha: Formulario */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre</label>
+                  <input
+                    type="text"
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
+                    value={editingProduct.name}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
                   />
-                  <div className="w-32">
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($)</label>
+                    <input
+                      type="number"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      value={editingProduct.price === 0 ? "" : editingProduct.price}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingProduct({ ...editingProduct, price: val === "" ? 0 : parseFloat(val) });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Stock</label>
+                    <input
+                      type="number"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      value={(editingProduct.inventory?.[0]?.quantity === 0) ? "" : (editingProduct.inventory?.[0]?.quantity || 0)}
+                      onChange={(e) => {
+                        const currentInv = editingProduct.inventory;
+                        const newInv = Array.isArray(currentInv) ? [...currentInv] : [];
+                        const val = e.target.value;
+                        const qty = val === "" ? 0 : parseInt(val);
+                        if (newInv[0]) {
+                          newInv[0] = { ...newInv[0], quantity: qty };
+                        } else {
+                          newInv[0] = { quantity: qty };
+                        }
+                        setEditingProduct({ ...editingProduct, inventory: newInv });
+                      }}
+                    />
+                  </div>
+                  <div>
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño</label>
                     <input
                       type="text"
-                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
                       placeholder="Ej: 30cm"
                       value={editingProduct.size || ""}
                       onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })}
                     />
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Categoría</label>
+                    <select
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      value={editingProduct.category_id}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, category_id: e.target.value })}
+                    >
+                      <option value="">...</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Descripción</label>
+                  <textarea
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none text-sm"
+                    value={editingProduct.description || ""}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    onClick={() => { setIsEditModalOpen(false); setEditingProduct(null); }}
+                    className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleUpdateProduct}
+                    disabled={!editingProduct.name || !editingProduct.price}
+                    className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                  >
+                    {loading ? "Guardando..." : "Guardar Cambios"}
+                  </button>
                 </div>
               </div>
-
             </div>
-            <div className="flex flex-col gap-3 mt-8">
-              <div className="flex gap-4">
-                <button
-                  onClick={() => { setIsEditModalOpen(false); setEditingProduct(null); }}
-                  className="flex-1 py-4 rounded-full font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleUpdateProduct}
-                  disabled={!editingProduct.name || !editingProduct.price}
-                  className="flex-1 py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
-                >
-                  {loading ? "Guardando..." : "Guardar Cambios"}
-                </button>
-              </div>
+          </div>
+        </div>
+      )}
 
-            <div className="mt-8 pt-6 border-t border-error/10">
-              <p className="text-[9px] font-black uppercase tracking-widest text-error/60 mb-3 text-center">Zona de Peligro</p>
+      {/* Modal Gestionar Categorías */}
+      {isManageCategoriesOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => { setIsManageCategoriesOpen(false); setEditingCategoryId(null); }}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">category</span>
+              Gestionar Categorías
+            </h3>
+
+            {/* Nueva Categoría Form */}
+            <div className="flex gap-3 mb-6 p-4 bg-surface-container-low/30 rounded-2xl border border-surface-container/50">
+              <input
+                type="text"
+                placeholder="Nueva Categoría (Ej. Llaveros)"
+                className="flex-1 bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+              />
               <button
-                onClick={() => handleDeleteProduct()}
-                className="w-full py-3 bg-error/5 hover:bg-[#ba1a1a] text-error hover:text-white rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-error/10 hover:border-error"
+                onClick={handleAddCategory}
+                disabled={loading || !newCategoryName.trim()}
+                className="px-6 bg-primary text-on-primary font-bold rounded-xl text-sm shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1"
               >
-                <span className="material-symbols-outlined text-sm">delete_forever</span>
-                Eliminar Producto del Sistema
+                <span className="material-symbols-outlined text-sm">add</span>
+                Añadir
               </button>
             </div>
+
+            {/* Listado de Categorías */}
+            <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
+              {categories.map((c) => (
+                <div 
+                  key={c.id} 
+                  className="flex items-center justify-between p-3.5 bg-surface-container-low/40 rounded-2xl border border-surface-container/30 hover:border-surface-container transition-colors"
+                >
+                  {editingCategoryId === c.id ? (
+                    <div className="flex-1 flex gap-2">
+                      <input
+                        type="text"
+                        className="flex-1 bg-white dark:bg-zinc-900 border-none rounded-xl px-3 py-2 focus:ring-2 focus:ring-primary outline-none text-xs"
+                        value={editingCategoryName}
+                        onChange={(e) => setEditingCategoryName(e.target.value)}
+                      />
+                      <button
+                        onClick={() => handleUpdateCategory(c.id)}
+                        className="w-8 h-8 rounded-xl bg-green-500 text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                        title="Guardar"
+                      >
+                        <span className="material-symbols-outlined text-sm">check</span>
+                      </button>
+                      <button
+                        onClick={() => { setEditingCategoryId(null); setEditingCategoryName(""); }}
+                        className="w-8 h-8 rounded-xl bg-surface-container-low text-on-surface-variant flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                        title="Cancelar"
+                      >
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-sm font-bold text-on-surface">{c.name}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { setEditingCategoryId(c.id); setEditingCategoryName(c.name); }}
+                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-secondary/10 hover:text-secondary transition-all"
+                          title="Editar"
+                        >
+                          <span className="material-symbols-outlined text-xs">edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(c.id, c.name)}
+                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-all"
+                          title="Eliminar"
+                        >
+                          <span className="material-symbols-outlined text-xs">delete</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -924,7 +1434,7 @@ export default function AdminPage() {
       {isSupplierModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-md" onClick={() => setIsSupplierModalOpen(false)} />
-          <div className="relative bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="relative bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setIsSupplierModalOpen(false)}
               className="absolute top-6 right-6 w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error hover:text-white transition-all"
@@ -981,13 +1491,13 @@ export default function AdminPage() {
             <div className="flex gap-4 mt-8">
               <button
                 onClick={() => setIsSupplierModalOpen(false)}
-                className="flex-1 py-4 rounded-full font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
+                className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAddSupplier}
-                className="flex-1 py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
+                className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
               >
                 Guardar Proveedor
               </button>
@@ -1000,7 +1510,7 @@ export default function AdminPage() {
       {isEditSupplierModalOpen && editingSupplier && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-md" onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }} />
-          <div className="relative bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10">
+          <div className="relative bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }}
               className="absolute top-6 right-6 w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error hover:text-white transition-all"
@@ -1048,21 +1558,19 @@ export default function AdminPage() {
                 />
               </div>
             </div>
-            <div className="flex flex-col gap-4 mt-8">
-              <div className="flex gap-4">
-                <button
-                  onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }}
-                  className="flex-1 py-4 rounded-full font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleUpdateSupplier}
-                  className="flex-1 py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
-                >
-                  Guardar Cambios
-                </button>
-              </div>
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }}
+                className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleUpdateSupplier}
+                className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
+              >
+                Guardar Cambios
+              </button>
               
               <div className="pt-6 border-t border-error/10">
                 <button
@@ -1077,27 +1585,440 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      {/* Modal Detalle de Venta */}
+      {isOrderDetailsOpen && selectedOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => { setIsOrderDetailsOpen(false); setSelectedOrder(null); }}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">receipt_long</span>
+              Detalle de Venta
+            </h3>
 
-      {/* Main Content */}
+            <div className="space-y-6">
+              {/* Resumen del Pedido */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-5 bg-surface-container-low/40 rounded-[2rem] border border-surface-container/50">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">ID del Pedido</p>
+                  <p className="text-xs font-mono font-bold text-primary truncate">#{selectedOrder.id.toUpperCase()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Fecha</p>
+                  <p className="text-xs font-bold text-on-surface">
+                    {new Date(selectedOrder.created_at).toLocaleString('es-ES', { 
+                      day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Cliente</p>
+                  <p className="text-sm font-bold text-on-surface">{selectedOrder.client_name}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Estado</p>
+                  <span className="inline-block mt-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary">
+                    {selectedOrder.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Tasa del día</p>
+                  <p className="text-sm font-bold text-on-surface">
+                    {selectedOrder.tasa_dia ? `Bs. ${Number(selectedOrder.tasa_dia).toFixed(2)}` : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Método de Pago</p>
+                  <p className="text-sm font-bold text-on-surface">
+                    {selectedOrder.payment_method || "-"}
+                  </p>
+                </div>
+              </div>
 
-      <main className="ml-64 flex-1 p-8 lg:p-12 transition-all">
-        <header className="flex justify-between items-end mb-12">
-          <div>
-            <h2 className="text-3xl font-extrabold tracking-tight text-on-surface mb-1">Buen día, Admin.</h2>
-            <p className="text-on-surface-variant">Así es como va el pulso de la juguetería hoy.</p>
+              {/* Observaciones */}
+              {selectedOrder.notes && (
+                <div className="p-5 bg-surface-container-low/40 rounded-[2rem] border border-surface-container/50">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Observaciones</p>
+                  <p className="text-sm text-on-surface leading-relaxed">{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              {/* Lista de Productos Comprados */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-[0.15em] text-primary mb-3">Productos Vendidos</h4>
+                <div className="border border-surface-container/60 rounded-3xl overflow-hidden">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-surface-container-low/50 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        <th className="px-6 py-3">Producto</th>
+                        <th className="px-6 py-3 text-center">Cantidad</th>
+                        <th className="px-6 py-3 text-right">Precio Unitario</th>
+                        <th className="px-6 py-3 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-surface-container/60 text-xs">
+                      {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
+                        selectedOrder.order_items.map((item) => (
+                          <tr key={item.id} className="hover:bg-surface-container-low/20">
+                            <td className="px-6 py-4 font-bold text-on-surface">
+                              {item.products?.name || "Producto no encontrado"}
+                            </td>
+                            <td className="px-6 py-4 text-center font-mono font-bold">
+                              {item.quantity}
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono">
+                              ${Number(item.price_at_purchase).toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono font-bold text-primary">
+                              ${(item.quantity * Number(item.price_at_purchase)).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-6 text-center text-on-surface-variant italic">
+                            No hay productos en esta orden.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Total final */}
+              <div className="flex justify-between items-center p-6 bg-primary/5 rounded-[2rem] border border-primary/10">
+                <span className="text-sm font-black uppercase tracking-widest text-primary">Total Recaudado</span>
+                <div className="flex flex-col items-end">
+                  <span className="text-2xl font-black text-primary">${Number(selectedOrder.total_amount).toFixed(2)}</span>
+                  {selectedOrder.tasa_dia && (
+                    <span className="text-xs font-bold text-primary opacity-70 mt-1">
+                      Equivalente: Bs. {(Number(selectedOrder.total_amount) * Number(selectedOrder.tasa_dia)).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={() => { setIsOrderDetailsOpen(false); setSelectedOrder(null); }}
+                className="px-8 py-3.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold rounded-full transition-all text-xs uppercase tracking-widest"
+              >
+                Cerrar Detalle
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="relative">
+        </div>
+      )}
+
+      {/* Modal Registrar Venta */}
+      {isAddOrderOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => { setIsAddOrderOpen(false); setNewOrderItems([]); }}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">add_shopping_cart</span>
+              Registrar Nueva Venta
+            </h3>
+
+            <div className="space-y-6">
+              {/* Información del Cliente */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-[0.15em] text-primary mb-3">Información del Cliente</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Nombre del Cliente</label>
+                    <input
+                      type="text"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      placeholder="Ej. Alice Moon (Dejar vacío para Cliente General)"
+                      value={newOrderClient}
+                      onChange={(e) => setNewOrderClient(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Método de Pago</label>
+                    <select
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      value={newOrderPaymentMethod}
+                      onChange={(e) => setNewOrderPaymentMethod(e.target.value)}
+                    >
+                      <option value="Efectivo Divisas">Efectivo Divisas</option>
+                      <option value="Punto de Venta">Punto de Venta</option>
+                      <option value="Pago Móvil">Pago Móvil</option>
+                      <option value="Efectivo en Bs">Efectivo en Bs</option>
+                      <option value="Método de Pago Combinado">Método de Pago Combinado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Tasa del día (Bs./€) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      placeholder="Ej. 45.30"
+                      value={newOrderTasaDia || ""}
+                      onChange={(e) => setNewOrderTasaDia(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Observaciones</label>
+                  <textarea
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm h-20 resize-none"
+                    placeholder="Notas o comentarios adicionales de la venta..."
+                    value={newOrderNotes}
+                    onChange={(e) => setNewOrderNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Opción de Registro Individual (para ventas rápidas independientes) */}
+              <div className="flex items-center justify-between p-4 bg-surface-container-low/50 rounded-2xl border border-surface-container/60">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold text-on-surface">Registrar individualmente</span>
+                  <span className="text-[10px] text-on-surface-variant leading-tight">
+                    Crea una venta independiente por cada producto agregado (para clientes individuales rápidos).
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={registerIndividually}
+                    onChange={(e) => setRegisterIndividually(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 dark:bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              {/* Productos en el Pedido */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-xs font-black uppercase tracking-[0.15em] text-primary">Productos en Venta</h4>
+                  <button 
+                    onClick={() => setNewOrderItems([...newOrderItems, { product_id: "", quantity: 1 }])}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-xs">add</span> Agregar Producto
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {newOrderItems.map((item, idx) => {
+                    const selectedProd = inventory.find(p => p.id === item.product_id);
+                    const stock = selectedProd ? (selectedProd.inventory?.[0]?.quantity ?? 0) : 0;
+
+                    return (
+                      <div key={idx} className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end bg-surface-container-low/40 p-4 rounded-2xl border border-surface-container animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="flex-1">
+                          <label className="block text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Producto</label>
+                          <select
+                            className="w-full bg-surface-container-low border-none rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-primary outline-none text-xs text-on-surface"
+                            value={item.product_id}
+                            onChange={(e) => {
+                              const list = [...newOrderItems];
+                              list[idx].product_id = e.target.value;
+                              setNewOrderItems(list);
+                            }}
+                          >
+                            <option value="">Selecciona un producto...</option>
+                            {inventory.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} - ${p.price} (Stock: {p.inventory?.[0]?.quantity ?? 0})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex gap-4 items-end justify-between sm:justify-start">
+                          <div className="w-20 sm:w-24">
+                            <label className="block text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Cant.</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max={stock > 0 ? stock : undefined}
+                              className="w-full bg-surface-container-low border-none rounded-xl px-3 py-2 focus:ring-2 focus:ring-primary outline-none text-xs text-center font-bold"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const list = [...newOrderItems];
+                                list[idx].quantity = Math.max(1, parseInt(e.target.value) || 1);
+                                setNewOrderItems(list);
+                              }}
+                            />
+                          </div>
+
+                          <div className="w-20 text-right">
+                            <label className="block text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Subtotal</label>
+                            <span className="text-sm font-bold text-primary font-mono block mb-1">
+                              ${selectedProd ? (selectedProd.price * item.quantity).toFixed(2) : "0.00"}
+                            </span>
+                          </div>
+
+                          <button 
+                            onClick={() => {
+                              setNewOrderItems(newOrderItems.filter((_, i) => i !== idx));
+                            }}
+                            className="w-8 h-8 rounded-full hover:bg-error/10 text-error flex items-center justify-center transition-colors mb-0.5"
+                            title="Quitar Producto"
+                          >
+                            <span className="material-symbols-outlined text-sm font-black">close</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {newOrderItems.length === 0 && (
+                    <div className="text-center py-6 border border-dashed border-surface-container rounded-2xl text-xs text-on-surface-variant/60 italic">
+                      No hay productos seleccionados. Haz clic en "Agregar Producto" para registrar ítems.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Total estimado */}
+              {(() => {
+                const totalUsd = newOrderItems.reduce((acc, item) => {
+                  const prod = inventory.find(p => p.id === item.product_id);
+                  return acc + (prod ? prod.price * item.quantity : 0);
+                }, 0);
+                const rate = Number(newOrderTasaDia) || 0;
+                return (
+                  <div className="flex justify-between items-center p-6 bg-primary/5 rounded-[2rem] border border-primary/10">
+                    <span className="text-sm font-black uppercase tracking-widest text-primary">Total Calculado</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-2xl font-black text-primary">
+                        ${totalUsd.toFixed(2)}
+                      </span>
+                      {rate > 0 && (
+                        <span className="text-xs font-bold text-primary opacity-70 mt-1">
+                          Equivalente: Bs. {(totalUsd * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="mt-8 flex gap-4">
+              <button
+                onClick={() => { setIsAddOrderOpen(false); setNewOrderItems([]); }}
+                className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all text-xs uppercase tracking-widest"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddOrder}
+                disabled={loading || newOrderItems.length === 0 || newOrderItems.some(i => !i.product_id) || !newOrderTasaDia || newOrderTasaDia <= 0}
+                className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 text-xs uppercase tracking-widest"
+              >
+                {loading ? "Guardando..." : "Guardar Venta"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Estado de Venta */}
+      {isEditOrderOpen && editingOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative">
+            <button 
+              onClick={() => { setIsEditOrderOpen(false); setEditingOrder(null); }}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            
+            <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">edit</span>
+              Editar Estado
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Pedido</p>
+                <p className="text-sm font-mono font-bold text-on-surface">#{editingOrder.id.slice(0, 8).toUpperCase()}</p>
+                <p className="text-xs text-on-surface-variant mt-1">Cliente: <span className="font-bold text-on-surface">{editingOrder.client_name}</span></p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nuevo Estado</label>
+                <select
+                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3.5 focus:ring-2 focus:ring-primary outline-none text-sm"
+                  value={newOrderStatus}
+                  onChange={(e) => setNewOrderStatus(e.target.value)}
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Procesando">Procesando</option>
+                  <option value="En espera">En espera</option>
+                  <option value="Enviado">Enviado</option>
+                  <option value="Entregado">Entregado</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => { setIsEditOrderOpen(false); setEditingOrder(null); }}
+                className="flex-1 py-4 rounded-full font-bold text-on-surface-variant hover:bg-surface-container-low transition-all text-xs uppercase tracking-widest"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleUpdateOrderStatus(editingOrder.id, newOrderStatus)}
+                className="flex-1 py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all text-xs uppercase tracking-widest"
+              >
+                Actualizar Estado
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="md:ml-64 flex-1 p-4 md:p-8 lg:p-12 transition-all">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 md:mb-12">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden w-12 h-12 flex items-center justify-center rounded-xl bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-all"
+              title="Menú"
+            >
+              <span className="material-symbols-outlined">menu</span>
+            </button>
+            <div>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-on-surface mb-1">Buen día, Admin.</h2>
+              <p className="text-xs md:text-sm text-on-surface-variant">Así es como va el pulso de la juguetería hoy.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="relative flex-1 md:flex-initial">
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
               <input
-                className="pl-12 pr-6 py-3 bg-surface-container-high border-none rounded-full w-64 focus:ring-2 focus:ring-primary-container focus:bg-surface-container-lowest transition-all"
+                className="pl-12 pr-6 py-3 bg-surface-container-high border-none rounded-full w-full md:w-64 focus:ring-2 focus:ring-primary-container focus:bg-surface-container-lowest transition-all text-sm"
                 placeholder="Buscar pedidos o productos..."
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <button className="w-12 h-12 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-colors">
+            <button className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-colors">
               <span className="material-symbols-outlined">notifications</span>
             </button>
           </div>
@@ -1190,6 +2111,178 @@ export default function AdminPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "ventas" && (
+          <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Bento Metrics for Sales */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-white dark:bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.06)] flex flex-col justify-between h-48 border border-primary/5 group hover:scale-[1.02] transition-all duration-300">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-2xl font-black">monetization_on</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Ingresos Totales</p>
+                  <h3 className="text-3xl font-black text-on-surface">
+                    ${orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.06)] flex flex-col justify-between h-48 border border-primary/5 group hover:scale-[1.02] transition-all duration-300">
+                <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                  <span className="material-symbols-outlined text-2xl font-black">pending_actions</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Pedidos Activos</p>
+                  <h3 className="text-3xl font-black text-on-surface">
+                    {orders.filter(o => ["Pendiente", "Procesando", "En espera", "Processing", "On Hold"].includes(o.status)).length}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.06)] flex flex-col justify-between h-48 border border-primary/5 group hover:scale-[1.02] transition-all duration-300">
+                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-600">
+                  <span className="material-symbols-outlined text-2xl font-black">task_alt</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Entregas Completadas</p>
+                  <h3 className="text-3xl font-black text-on-surface">
+                    {orders.filter(o => ["Entregado", "Enviado", "Delivered"].includes(o.status)).length}
+                  </h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Sales Table and Actions */}
+            <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] shadow-[0_12px_40px_rgba(146,63,95,0.04)] overflow-hidden border border-primary/5">
+              <div className="p-8 border-b border-surface-container flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h3 className="text-xl font-black text-on-surface">Gestión de Ventas</h3>
+                  <p className="text-xs text-on-surface-variant">Monitorea y registra los pedidos realizados en tu tienda.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsAddOrderOpen(true);
+                    setNewOrderItems([{ product_id: "", quantity: 1 }]);
+                  }}
+                  className="px-8 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-sm font-black">add_shopping_cart</span>
+                  Registrar Venta
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-surface-container-low/50 border-b border-surface-container">
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">ID Pedido</th>
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Fecha</th>
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Cliente</th>
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Productos</th>
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Tasa</th>
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Método</th>
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-right">Total</th>
+                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-container/60">
+                    {loading ? (
+                      <tr><td colSpan={8} className="px-8 py-12 text-center text-on-surface-variant italic">Cargando ventas...</td></tr>
+                    ) : filteredOrders.length > 0 ? (
+                      filteredOrders.map((order) => {
+                        const itemCount = order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+                        const productNames = order.order_items?.map(item => `${item.products?.name || 'Producto'} (x${item.quantity})`).join(", ") || "Sin productos";
+
+                        return (
+                          <tr key={order.id} className="hover:bg-surface-container-low/30 transition-colors">
+                            <td className="px-8 py-5 text-xs font-mono font-bold text-on-surface-variant">
+                              #{order.id.slice(0, 8).toUpperCase()}
+                            </td>
+                            <td className="px-8 py-5 text-xs text-on-surface-variant">
+                              {new Date(order.created_at).toLocaleDateString('es-ES', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </td>
+                            <td className="px-8 py-5 text-sm font-bold text-on-surface">
+                              {order.client_name}
+                            </td>
+                            <td className="px-8 py-5 text-xs text-on-surface-variant max-w-xs truncate" title={productNames}>
+                              <span className="font-bold text-primary mr-1">({itemCount})</span> {productNames}
+                            </td>
+                            <td className="px-8 py-5 text-xs font-bold text-on-surface-variant">
+                              {order.tasa_dia ? `Bs. ${Number(order.tasa_dia).toFixed(2)}` : "-"}
+                            </td>
+                            <td className="px-8 py-5 text-xs font-bold text-on-surface-variant">
+                              {order.payment_method || "-"}
+                            </td>
+                            <td className="px-8 py-5 text-right">
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="text-sm font-black text-primary">
+                                  ${Number(order.total_amount).toFixed(2)}
+                                </span>
+                                {order.tasa_dia && Number(order.tasa_dia) > 0 && (
+                                  <span className="text-[11px] font-bold text-on-surface-variant opacity-75">
+                                    Bs. {(Number(order.total_amount) * Number(order.tasa_dia)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-8 py-5">
+                              <div className="flex items-center justify-center gap-2">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setIsOrderDetailsOpen(true);
+                                  }}
+                                  className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-all"
+                                  title="Ver Detalles"
+                                >
+                                  <span className="material-symbols-outlined text-sm font-black">visibility</span>
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setEditingOrder(order);
+                                    setNewOrderStatus(order.status);
+                                    setIsEditOrderOpen(true);
+                                  }}
+                                  className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-secondary/10 hover:text-secondary transition-all"
+                                  title="Editar Estado"
+                                >
+                                  <span className="material-symbols-outlined text-sm font-black">edit</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteOrder(order.id)}
+                                  className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-all"
+                                  title="Eliminar Venta"
+                                >
+                                  <span className="material-symbols-outlined text-sm font-black">delete</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="px-8 py-16 text-center text-on-surface-variant/50">
+                          <div className="flex flex-col items-center gap-2">
+                            <span className="material-symbols-outlined text-4xl">shopping_cart_off</span>
+                            <span className="text-sm font-bold">No se encontraron ventas</span>
+                            <span className="text-xs">Usa el botón "Registrar Venta" para crear una.</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         )}
@@ -1428,19 +2521,28 @@ export default function AdminPage() {
 
             {/* Category Filter */}
 
-            <div className="px-8 py-4 flex flex-wrap gap-3 border-b border-surface-container/50">
-              {["Todos", ...categories.map(c => c.name)].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-6 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${selectedCategory === cat
-                    ? "bg-[#923f5f] text-white shadow-[#923f5f]/20"
-                    : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"
-                    }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            <div className="px-8 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-surface-container/50">
+              <div className="flex flex-wrap gap-3">
+                {["Todos", ...categories.map(c => c.name)].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-6 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${selectedCategory === cat
+                      ? "bg-[#923f5f] text-white shadow-[#923f5f]/20"
+                      : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"
+                      }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setIsManageCategoriesOpen(true)}
+                className="px-5 py-2.5 bg-secondary text-on-secondary rounded-full text-xs font-bold shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">category</span>
+                Gestionar Categorías
+              </button>
             </div>
 
             <div className="p-8">
