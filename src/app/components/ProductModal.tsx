@@ -12,7 +12,8 @@ interface ProductModalProps {
 export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 }: ProductModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isFallback, setIsFallback] = useState(false);
-  const imgSrc = `/images/${product.id}.jpg`;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const imgSrc = `${supabaseUrl}/storage/v1/object/public/product-images/${product.id}.jpg`;
   const vesPrice = dollarRate > 0 ? (product.price * dollarRate).toFixed(2) : null;
 
   useEffect(() => {

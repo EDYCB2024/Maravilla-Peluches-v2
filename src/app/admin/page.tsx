@@ -107,6 +107,45 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
+
+  // Custom shadowed alert function that displays a toast notification
+  const alert = (message: string) => {
+    const isError = message.toLowerCase().includes("error") || message.toLowerCase().includes("falló") || message.toLowerCase().includes("inexistente") || message.toLowerCase().includes("no existe");
+    setToast({ message, type: isError ? "error" : "success" });
+  };
+
+  // Helper for async custom confirmation modal
+  const askConfirmation = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const [activeTab, setActiveTab] = useState("catalogo");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -303,21 +342,26 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeletePhoto = async (productId: string) => {
-    if (!confirm("¿Seguro que quieres eliminar la foto de este producto?")) return;
-    try {
-      const res = await fetch("/api/delete-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
-      });
-      if (res.ok) {
-        setRefreshKey(Date.now());
-        alert("Foto eliminada.");
+  const handleDeletePhoto = (productId: string) => {
+    askConfirmation(
+      "Eliminar Foto",
+      "¿Seguro que quieres eliminar la foto de este producto?",
+      async () => {
+        try {
+          const res = await fetch("/api/delete-photo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId }),
+          });
+          if (res.ok) {
+            setRefreshKey(Date.now());
+            alert("Foto eliminada.");
+          }
+        } catch (e) {
+          alert("Error al eliminar la foto.");
+        }
       }
-    } catch (e) {
-      alert("Error al eliminar la foto.");
-    }
+    );
   };
 
   const handleUseAsHero = async (productId: string) => {
@@ -478,27 +522,32 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteSupplier = async (id: string) => {
-    if (!confirm("¿Seguro que quieres eliminar este proveedor?")) return;
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from("suppliers")
-        .delete()
-        .eq("id", id);
+  const handleDeleteSupplier = (id: string) => {
+    askConfirmation(
+      "Eliminar Proveedor",
+      "¿Seguro que quieres eliminar este proveedor?",
+      async () => {
+        try {
+          setLoading(true);
+          const { error } = await supabase
+            .from("suppliers")
+            .delete()
+            .eq("id", id);
 
-      if (error) throw error;
+          if (error) throw error;
 
-      setSuppliers(prev => prev.filter(s => s.id !== id));
-      setIsEditSupplierModalOpen(false);
-      setEditingSupplier(null);
-      alert("Proveedor eliminado.");
-    } catch (error) {
-      console.error("Error deleting supplier:", error);
-      alert("Error al eliminar el proveedor.");
-    } finally {
-      setLoading(false);
-    }
+          setSuppliers(prev => prev.filter(s => s.id !== id));
+          setIsEditSupplierModalOpen(false);
+          setEditingSupplier(null);
+          alert("Proveedor eliminado.");
+        } catch (error) {
+          console.error("Error deleting supplier:", error);
+          alert("Error al eliminar el proveedor.");
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
   };
 
   const handleUpdateSettings = async () => {
@@ -665,65 +714,71 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteCategory = async (id: string, name: string) => {
-    if (!confirm(`¿Estás seguro de que deseas eliminar la categoría "${name}"? Esto podría afectar a los productos asociados.`)) {
-      return;
-    }
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from("categories")
-        .delete()
-        .eq("id", id);
+  const handleDeleteCategory = (id: string, name: string) => {
+    askConfirmation(
+      "Eliminar Categoría",
+      `¿Estás seguro de que deseas eliminar la categoría "${name}"? Esto podría afectar a los productos asociados.`,
+      async () => {
+        try {
+          setLoading(true);
+          const { error } = await supabase
+            .from("categories")
+            .delete()
+            .eq("id", id);
 
-      if (error) throw error;
+          if (error) throw error;
 
-      alert("Categoría eliminada con éxito.");
+          alert("Categoría eliminada con éxito.");
 
-      // Refetch categories & products
-      const [catData, prodData] = await Promise.all([
-        supabase.from("categories").select("*"),
-        supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
-      ]);
+          // Refetch categories & products
+          const [catData, prodData] = await Promise.all([
+            supabase.from("categories").select("*"),
+            supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
+          ]);
 
-      if (catData.data) setCategories(catData.data);
-      if (prodData.data) {
-        const items = (prodData.data as unknown as InventoryItem[]).sort((a, b) => a.name.localeCompare(b.name));
-        setInventory(items);
+          if (catData.data) setCategories(catData.data);
+          if (prodData.data) {
+            const items = (prodData.data as unknown as InventoryItem[]).sort((a, b) => a.name.localeCompare(b.name));
+            setInventory(items);
+          }
+        } catch (e: any) {
+          console.error("Error deleting category:", e);
+          alert(`Error al eliminar categoría: ${e.message || JSON.stringify(e)}`);
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (e: any) {
-      console.error("Error deleting category:", e);
-      alert(`Error al eliminar categoría: ${e.message || JSON.stringify(e)}`);
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
-  const handleDeleteProduct = async () => {
+  const handleDeleteProduct = () => {
     if (!editingProduct) return;
 
-    const confirmDelete = window.confirm(`¿Estás seguro de que deseas eliminar "${editingProduct.name}"? Esta acción no se puede deshacer.`);
-    if (!confirmDelete) return;
+    askConfirmation(
+      "Eliminar Producto",
+      `¿Estás seguro de que deseas eliminar "${editingProduct.name}"? Esta acción no se puede deshacer.`,
+      async () => {
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from("products")
+            .delete()
+            .eq("id", editingProduct.id);
 
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", editingProduct.id);
+          if (error) throw error;
 
-      if (error) throw error;
-
-      setInventory(prev => prev.filter(item => item.id !== editingProduct.id));
-      setIsEditModalOpen(false);
-      setEditingProduct(null);
-      alert("Producto eliminado correctamente.");
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      alert("Error al eliminar el producto.");
-    } finally {
-      setLoading(false);
-    }
+          setInventory(prev => prev.filter(item => item.id !== editingProduct.id));
+          setIsEditModalOpen(false);
+          setEditingProduct(null);
+          alert("Producto eliminado correctamente.");
+        } catch (error) {
+          console.error("Error deleting product:", error);
+          alert("Error al eliminar el producto.");
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
   };
 
   const toggleProductActive = async (id: string, currentState: boolean) => {
@@ -984,26 +1039,31 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm("¿Seguro que quieres eliminar esta venta del sistema? Esta acción no se puede deshacer.")) return;
-    try {
-      setLoading(true);
+  const handleDeleteOrder = (orderId: string) => {
+    askConfirmation(
+      "Eliminar Venta",
+      "¿Seguro que quieres eliminar esta venta del sistema? Esta acción no se puede deshacer.",
+      async () => {
+        try {
+          setLoading(true);
 
-      // Delete order items first (due to foreign key constraints)
-      await supabase.from("order_items").delete().eq("order_id", orderId);
+          // Delete order items first (due to foreign key constraints)
+          await supabase.from("order_items").delete().eq("order_id", orderId);
 
-      // Delete order
-      const { error } = await supabase.from("orders").delete().eq("id", orderId);
-      if (error) throw error;
+          // Delete order
+          const { error } = await supabase.from("orders").delete().eq("id", orderId);
+          if (error) throw error;
 
-      setOrders(prev => prev.filter(o => o.id !== orderId));
-      alert("Venta eliminada del sistema.");
-    } catch (e: any) {
-      console.error("Error deleting order:", e);
-      alert(`Error al eliminar venta: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
+          setOrders(prev => prev.filter(o => o.id !== orderId));
+          alert("Venta eliminada del sistema.");
+        } catch (e: any) {
+          console.error("Error deleting order:", e);
+          alert(`Error al eliminar venta: ${e.message}`);
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
   };
 
   const filteredOrders = orders.filter(order => {
@@ -1283,7 +1343,7 @@ export default function AdminPage() {
               <div className="space-y-4">
                 <div className="relative group w-full aspect-square rounded-3xl bg-surface-container-low overflow-hidden shadow-sm border border-primary/10">
                   <img
-                    src={editingProduct.product_images?.find((img: any) => img.is_primary)?.url || editingProduct.product_images?.[0]?.url || `/images/${editingProduct.id}.jpg?v=${refreshKey}`}
+                    src={editingProduct.product_images?.find((img: any) => img.is_primary)?.url || editingProduct.product_images?.[0]?.url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${editingProduct.id}.jpg?v=${refreshKey}`}
                     alt={editingProduct.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -2680,6 +2740,47 @@ export default function AdminPage() {
         <footer className="w-full py-12 mt-10 flex flex-col items-center justify-center gap-4 text-center">
           <p className="text-[10px] text-[#5b5c5a] dark:text-[#a1a19f] font-['Plus_Jakarta_Sans'] uppercase tracking-widest">© 2024 Maravilla Admin. Creado con ternura.</p>
         </footer>
+        {/* custom Toast notification */}
+        {toast && (
+          <div className={`fixed bottom-6 right-6 z-[120] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-lg border animate-in slide-in-from-bottom-5 duration-300 ${
+            toast.type === "error" 
+              ? "bg-red-50 dark:bg-zinc-900 border-red-200 text-red-700 dark:text-red-400" 
+              : "bg-green-50 dark:bg-zinc-900 border-green-200 text-green-700 dark:text-green-400"
+          }`}>
+            <span className="material-symbols-outlined text-lg">
+              {toast.type === "error" ? "error" : "check_circle"}
+            </span>
+            <p className="text-sm font-bold">{toast.message}</p>
+          </div>
+        )}
+
+        {/* custom Confirmation Modal */}
+        {confirmConfig.isOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-[#2e2f2d]/40 backdrop-blur-sm" onClick={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))} />
+            <div className="relative bg-white dark:bg-surface-container-lowest rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl border border-primary/10 animate-in fade-in zoom-in-95 duration-200 text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-error-container/20 text-error flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-2xl font-black">warning</span>
+              </div>
+              <h3 className="text-xl font-black text-on-surface mb-2">{confirmConfig.title}</h3>
+              <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">{confirmConfig.message}</p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 py-3 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all text-xs uppercase tracking-widest"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={confirmConfig.onConfirm}
+                  className="flex-1 py-3 bg-error text-white rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all text-xs uppercase tracking-widest"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -2698,7 +2799,7 @@ function AdminProductCard({ item, onToggle, onToggleVisibility, onToggleHero, on
   refreshKey: number
 }) {
   const [hasError, setHasError] = useState(false);
-  const primaryImage = `/images/${item.id}.jpg?v=${refreshKey}`;
+  const primaryImage = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${item.id}.jpg?v=${refreshKey}`;
 
   const isVisible = item.is_visible !== false; // Default true
   const isHero = (item as any).is_hero === true;

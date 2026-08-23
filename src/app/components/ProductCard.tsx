@@ -12,7 +12,8 @@ interface ProductCardProps {
 export default function ProductCard({ product, dollarRate = 0 }: ProductCardProps) {
   const [isFallback, setIsFallback] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [imgSrc] = useState(`/images/${product.id}.jpg`);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const [imgSrc] = useState(`${supabaseUrl}/storage/v1/object/public/product-images/${product.id}.jpg`);
 
   const vesPrice = dollarRate > 0 ? (product.price * dollarRate).toFixed(2) : null;
   const { addToCart } = useCart();

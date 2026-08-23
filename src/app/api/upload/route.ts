@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,21 +14,24 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Ruta a la carpeta public/images
-    const uploadDir = path.join(process.cwd(), 'public', 'images');
-    
-    // Asegurarse de que el directorio existe
-    await fs.mkdir(uploadDir, { recursive: true });
+    // Subir a Supabase Storage en el bucket 'product-images'
+    const { data, error } = await supabase.storage
+      .from('product-images')
+      .upload(`${productId}.jpg`, buffer, {
+        contentType: 'image/jpeg',
+        upsert: true
+      });
 
-    // Nombre del archivo: [productId].jpg (o la extensión original, pero forzaremos jpg para consistencia con el código actual)
-    const filePath = path.join(uploadDir, `${productId}.jpg`);
+    if (error) {
+      throw error;
+    }
 
-    await fs.writeFile(filePath, buffer);
-    console.log(`Archivo guardado en ${filePath}`);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${productId}.jpg`;
 
-    return NextResponse.json({ success: true, path: `/images/${productId}.jpg` });
-  } catch (error) {
+    return NextResponse.json({ success: true, path: publicUrl });
+  } catch (error: any) {
     console.error('Error en el upload:', error);
-    return NextResponse.json({ error: 'Error al subir el archivo' }, { status: 500 });
+    return NextResponse.json({ error: `Error al subir el archivo: ${error.message || error}` }, { status: 500 });
   }
 }
