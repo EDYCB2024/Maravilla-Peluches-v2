@@ -24,6 +24,10 @@
   --color-surface-container-highest: #ddddd9;
   --color-surface-container-lowest: #ffffff;
 
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+
   --font-plus-jakarta: "Plus Jakarta Sans", sans-serif;
   
   --radius-xl: 3rem;
