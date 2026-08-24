@@ -56,12 +56,12 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
         </button>
 
         {/* Image Section */}
-        <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-white relative">
+        <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-white relative flex items-center justify-center p-6">
             {!isFallback ? (
                 <img 
                     src={imgSrc} 
                     alt={product.name}
-                    className="w-full h-full object-contain p-6"
+                    className="max-w-full max-h-full w-auto h-auto rounded-3xl shadow-md"
                     onError={() => setIsFallback(true)}
                 />
             ) : (

@@ -47,6 +47,7 @@ interface Order {
 interface Category {
   id: string;
   name: string;
+  position?: number;
 }
 
 const mockOrders: Order[] = [
@@ -170,11 +171,12 @@ export default function AdminPage() {
 
 
 
-  const [activeTab, setActiveTab] = useState("catalogo");
+  const [activeTab, setActiveTab] = useState("inicio");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [euroRate, setEuroRate] = useState(0);
+  const [dollarRate, setDollarRate] = useState(0);
   const [newOrderTasaDia, setNewOrderTasaDia] = useState(0);
   const [registerIndividually, setRegisterIndividually] = useState(false);
   const [newOrderPaymentMethod, setNewOrderPaymentMethod] = useState("Efectivo Divisas");
@@ -189,6 +191,7 @@ export default function AdminPage() {
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [isEditSupplierModalOpen, setIsEditSupplierModalOpen] = useState(false);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+  const [hasCategoryChanges, setHasCategoryChanges] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
@@ -222,6 +225,9 @@ export default function AdminPage() {
   // Selected date filter state (empty means show all days)
   const [selectedDate, setSelectedDate] = useState<string>("");
 
+  // Clock state
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   // Helper to generate the last 7 calendar days
   const getLast7Days = () => {
     const days = [];
@@ -236,6 +242,11 @@ export default function AdminPage() {
     }
     return days;
   };
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -256,14 +267,15 @@ export default function AdminPage() {
     if (!session) return;
     async function fetchAdminData() {
       try {
-        const [productsRes, categoriesRes, suppliersRes, settingsRes, ordersRes, exchangeRes] = await Promise.all([
+        const [productsRes, categoriesRes, suppliersRes, settingsRes, ordersRes, exchangeRes, euroRes] = await Promise.all([
           supabase
             .from("products")
             .select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
-          supabase.from("categories").select("*"),
+          supabase.from("categories").select("*").order("position", { ascending: true }),
           supabase.from("suppliers").select("*"),
           supabase.from("settings").select("*").single(),
           supabase.from("orders").select("*, order_items(*, products(*))").order("created_at", { ascending: false }),
+          fetch("https://ve.dolarapi.com/v1/dolares/oficial").then(res => res.json()).catch(() => null),
           fetch("https://ve.dolarapi.com/v1/euros/oficial").then(res => res.json()).catch(() => null)
         ]);
 
@@ -307,10 +319,15 @@ export default function AdminPage() {
           lowStock: lowStockCount
         });
 
-        const rate = exchangeRes?.promedio || 0;
-        const roundedRate = Math.round(rate * 100) / 100;
-        setEuroRate(roundedRate);
-        setNewOrderTasaDia(roundedRate);
+        const usdRate = exchangeRes?.promedio || 0;
+        const eurRate = euroRes?.promedio || 0;
+
+        const roundedUsd = Math.round(usdRate * 100) / 100;
+        const roundedEur = Math.round(eurRate * 100) / 100;
+
+        setDollarRate(roundedUsd);
+        setEuroRate(roundedEur);
+        setNewOrderTasaDia(roundedUsd || roundedEur);
 
       } catch (error) {
         console.error("Error fetching admin data:", error);
@@ -683,9 +700,10 @@ export default function AdminPage() {
     try {
       setLoading(true);
       const slug = newCategoryName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const maxPosition = categories.length > 0 ? Math.max(...categories.map(c => c.position || 0)) : 0;
       const { data, error } = await supabase
         .from("categories")
-        .insert([{ name: newCategoryName.trim(), slug }])
+        .insert([{ name: newCategoryName.trim(), slug, position: maxPosition + 1 }])
         .select();
 
       if (error) throw error;
@@ -694,7 +712,7 @@ export default function AdminPage() {
       setNewCategoryName("");
 
       // Refetch categories
-      const { data: catData } = await supabase.from("categories").select("*");
+      const { data: catData } = await supabase.from("categories").select("*").order("position", { ascending: true });
       if (catData) setCategories(catData);
     } catch (e: any) {
       console.error("Error adding category:", e);
@@ -725,7 +743,7 @@ export default function AdminPage() {
 
       // Refetch categories & products to sync labels
       const [catData, prodData] = await Promise.all([
-        supabase.from("categories").select("*"),
+        supabase.from("categories").select("*").order("position", { ascending: true }),
         supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
       ]);
 
@@ -760,7 +778,7 @@ export default function AdminPage() {
 
           // Refetch categories & products
           const [catData, prodData] = await Promise.all([
-            supabase.from("categories").select("*"),
+            supabase.from("categories").select("*").order("position", { ascending: true }),
             supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
           ]);
 
@@ -777,6 +795,77 @@ export default function AdminPage() {
         }
       }
     );
+  };
+
+  const handleMoveCategory = (id: string, direction: "up" | "down") => {
+    const currentIndex = categories.findIndex(c => c.id === id);
+    if (currentIndex === -1) return;
+    
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= categories.length) return;
+    
+    // Create a copy of the categories array
+    const newCategories = [...categories];
+    
+    // Swap the elements
+    const temp = newCategories[currentIndex];
+    newCategories[currentIndex] = newCategories[targetIndex];
+    newCategories[targetIndex] = temp;
+    
+    // Map with new sequential position values
+    const updatedCategories = newCategories.map((cat, idx) => ({
+      ...cat,
+      position: idx + 1
+    }));
+    
+    setCategories(updatedCategories);
+    setHasCategoryChanges(true);
+  };
+
+  const handleSaveCategoryOrder = async () => {
+    try {
+      setLoading(true);
+      const updatePromises = categories.map((cat, idx) => {
+        return supabase
+          .from("categories")
+          .update({ position: idx + 1 })
+          .eq("id", cat.id);
+      });
+      
+      const results = await Promise.all(updatePromises);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        throw new Error("Ocurrió un error al guardar algunas posiciones.");
+      }
+      
+      setHasCategoryChanges(false);
+      alert("Orden de categorías guardado con éxito.");
+      
+      // Revalidate cache
+      await fetch('/api/revalidate', { method: 'POST' }).catch(() => null);
+    } catch (e: any) {
+      console.error("Error saving category order:", e);
+      alert(`Error al guardar el orden: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseCategoryModal = async () => {
+    if (hasCategoryChanges) {
+      askConfirmation(
+        "Descartar cambios",
+        "Tienes cambios sin guardar en el orden de las categorías. ¿Deseas descartarlos?",
+        async () => {
+          const { data: catData } = await supabase.from("categories").select("*").order("position", { ascending: true });
+          if (catData) setCategories(catData);
+          setHasCategoryChanges(false);
+          setIsManageCategoriesOpen(false);
+        }
+      );
+    } else {
+      setIsManageCategoriesOpen(false);
+    }
   };
 
   const handleDeleteProduct = () => {
@@ -1198,6 +1287,19 @@ export default function AdminPage() {
           ))}
         </nav>
 
+        <div className="px-4 py-4 border-t border-surface-variant/10">
+          <button
+            onClick={() => {
+              setIsAddOrderOpen(true);
+              setIsSidebarOpen(false);
+            }}
+            className="w-full py-3 bg-primary text-on-primary rounded-full font-bold shadow-md hover:scale-105 active:scale-95 transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+            Registrar Venta
+          </button>
+        </div>
+
         <div className="mt-auto px-6 py-4 flex items-center justify-between border-t border-surface-variant/20">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
@@ -1510,9 +1612,9 @@ export default function AdminPage() {
       {/* Modal Gestionar Categorías */}
       {isManageCategoriesOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
             <button
-              onClick={() => { setIsManageCategoriesOpen(false); setEditingCategoryId(null); }}
+              onClick={handleCloseCategoryModal}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
               <span className="material-symbols-outlined">close</span>
@@ -1523,6 +1625,14 @@ export default function AdminPage() {
               Gestionar Categorías
             </h3>
 
+            {/* Warning banner for unsaved changes */}
+            {hasCategoryChanges && (
+              <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl text-xs flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">warning</span>
+                <span>Tienes cambios de orden pendientes. Guárdalos antes de realizar otras acciones.</span>
+              </div>
+            )}
+
             {/* Nueva Categoría Form */}
             <div className="flex gap-3 mb-6 p-4 bg-surface-container-low/30 rounded-2xl border border-surface-container/50">
               <input
@@ -1531,10 +1641,11 @@ export default function AdminPage() {
                 className="flex-1 bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
+                disabled={hasCategoryChanges}
               />
               <button
                 onClick={handleAddCategory}
-                disabled={loading || !newCategoryName.trim()}
+                disabled={loading || !newCategoryName.trim() || hasCategoryChanges}
                 className="px-6 bg-primary text-on-primary font-bold rounded-xl text-sm shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-sm">add</span>
@@ -1543,7 +1654,7 @@ export default function AdminPage() {
             </div>
 
             {/* Listado de Categorías */}
-            <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
+            <div className="max-h-[450px] overflow-y-auto pr-1 space-y-2">
               {categories.map((c) => (
                 <div
                   key={c.id}
@@ -1577,15 +1688,34 @@ export default function AdminPage() {
                       <span className="text-sm font-bold text-on-surface">{c.name}</span>
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => handleMoveCategory(c.id, "up")}
+                          disabled={categories.findIndex(x => x.id === c.id) === 0}
+                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-all disabled:opacity-30 disabled:hover:bg-surface-container-low disabled:hover:text-on-surface-variant"
+                          title="Subir"
+                        >
+                          <span className="material-symbols-outlined text-xs">arrow_upward</span>
+                        </button>
+                        <button
+                          onClick={() => handleMoveCategory(c.id, "down")}
+                          disabled={categories.findIndex(x => x.id === c.id) === categories.length - 1}
+                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-all disabled:opacity-30 disabled:hover:bg-surface-container-low disabled:hover:text-on-surface-variant"
+                          title="Bajar"
+                        >
+                          <span className="material-symbols-outlined text-xs">arrow_downward</span>
+                        </button>
+                        <div className="h-4 w-px bg-surface-container/60"></div>
+                        <button
                           onClick={() => { setEditingCategoryId(c.id); setEditingCategoryName(c.name); }}
-                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-secondary/10 hover:text-secondary transition-all"
+                          disabled={hasCategoryChanges}
+                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-secondary/10 hover:text-secondary transition-all disabled:opacity-30"
                           title="Editar"
                         >
                           <span className="material-symbols-outlined text-xs">edit</span>
                         </button>
                         <button
                           onClick={() => handleDeleteCategory(c.id, c.name)}
-                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-all"
+                          disabled={hasCategoryChanges}
+                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-error/10 hover:text-error transition-all disabled:opacity-30"
                           title="Eliminar"
                         >
                           <span className="material-symbols-outlined text-xs">delete</span>
@@ -1595,6 +1725,24 @@ export default function AdminPage() {
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* Action buttons at bottom */}
+            <div className="flex gap-3 justify-end pt-4 border-t border-surface-container mt-6">
+              <button
+                onClick={handleCloseCategoryModal}
+                className="px-6 py-2.5 bg-surface-container-low hover:bg-surface-container font-bold rounded-xl text-sm transition-all text-on-surface"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleSaveCategoryOrder}
+                disabled={loading || !hasCategoryChanges}
+                className="px-6 py-2.5 bg-primary text-on-primary font-bold rounded-xl text-sm shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                {loading ? "Guardando..." : "Guardar Cambios"}
+              </button>
             </div>
           </div>
         </div>
@@ -1728,29 +1876,32 @@ export default function AdminPage() {
                 />
               </div>
             </div>
+            {/* Primary Actions */}
             <div className="flex gap-4 mt-8">
               <button
                 onClick={() => { setIsEditSupplierModalOpen(false); setEditingSupplier(null); }}
-                className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all"
+                className="flex-1 py-3 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all text-sm"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleUpdateSupplier}
-                className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
+                className="flex-1 py-3 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all text-sm"
               >
                 Guardar Cambios
               </button>
+            </div>
 
-              <div className="pt-6 border-t border-error/10">
-                <button
-                  onClick={() => handleDeleteSupplier(editingSupplier.id)}
-                  className="w-full py-3 bg-error/5 hover:bg-error text-error hover:text-white rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-error/10 hover:border-error"
-                >
-                  <span className="material-symbols-outlined text-sm">delete</span>
-                  Eliminar Proveedor
-                </button>
-              </div>
+            {/* Danger Zone */}
+            <div className="mt-8 pt-6 border-t border-error/10">
+              <p className="text-[9px] font-black uppercase tracking-widest text-error/60 mb-2">Zona de Peligro</p>
+              <button
+                onClick={() => handleDeleteSupplier(editingSupplier.id)}
+                className="w-full py-2.5 bg-error/5 hover:bg-error text-error hover:text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-error/10 hover:border-error"
+              >
+                <span className="material-symbols-outlined text-sm">delete</span>
+                Eliminar Proveedor
+              </button>
             </div>
           </div>
         </div>
@@ -2163,78 +2314,221 @@ export default function AdminPage() {
       )}
 
       <main className="md:ml-64 flex-1 p-4 md:p-8 lg:p-12 transition-all">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 md:mb-12">
-          <div className="flex items-center gap-3 w-full md:w-auto">
+        {/* Sticky Top Bar */}
+        <div className="sticky top-2 md:top-3 z-40 bg-surface-container-lowest/90 backdrop-blur-xl border border-surface-container/60 rounded-2xl md:rounded-3xl px-4 md:px-6 py-3 -mt-2 md:-mt-4 lg:-mt-6 mb-8 flex items-center justify-between gap-4 transition-all duration-300 shadow-md">
+          {/* Left: Mobile Menu & Search */}
+          <div className="flex items-center gap-4 flex-1">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden w-12 h-12 flex items-center justify-center rounded-xl bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-all"
+              className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-all shrink-0"
               title="Menú"
             >
               <span className="material-symbols-outlined">menu</span>
             </button>
-            <div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-on-surface mb-1">Buen día, Admin.</h2>
-              <p className="text-xs md:text-sm text-on-surface-variant">Así es como va el pulso de la juguetería hoy.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="relative flex-1 md:flex-initial">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+
+            {/* Search Input */}
+            <div className="relative w-full max-w-md hidden sm:block">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
               <input
-                className="pl-12 pr-6 py-3 bg-surface-container-high border-none rounded-full w-full md:w-64 focus:ring-2 focus:ring-primary-container focus:bg-surface-container-lowest transition-all text-sm"
-                placeholder="Buscar pedidos o productos..."
+                className="w-full pl-12 pr-4 py-2.5 bg-surface-container-lowest border border-surface-container/60 rounded-full focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm outline-none shadow-sm"
+                placeholder="Buscar pedidos, productos..."
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <button className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
+            {/* Mobile search icon only */}
+            <button className="sm:hidden w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest border border-surface-container/60 text-on-surface-variant shrink-0">
+               <span className="material-symbols-outlined">search</span>
             </button>
           </div>
-        </header>
+
+          {/* Center/Right: Rates, Notifications, User */}
+          <div className="flex items-center justify-end gap-3 sm:gap-5 flex-1">
+            {/* Clock */}
+            <div className="hidden lg:flex flex-col items-end justify-center mr-2 text-on-surface-variant">
+              <span className="text-xs font-bold leading-tight">{currentTime.toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+              <span className="text-[10px] font-medium leading-tight">{currentTime.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+
+            {/* Rates */}
+            <div className="hidden lg:flex items-center gap-4 bg-surface-container-lowest px-4 py-2 rounded-full border border-surface-container/60 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-[#2e7d32]">payments</span>
+                <span className="text-xs font-bold text-on-surface">USD {dollarRate > 0 ? dollarRate.toFixed(2) : '...'}</span>
+              </div>
+              <div className="h-4 w-px bg-surface-container"></div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-[#006064]">euro</span>
+                <span className="text-xs font-bold text-on-surface">EUR {euroRate > 0 ? euroRate.toFixed(2) : '...'}</span>
+              </div>
+            </div>
+
+            {/* Mobile rates mini */}
+            <div className="lg:hidden flex flex-col items-end mr-2 text-[10px] font-bold">
+              <span className="text-[#2e7d32]">USD {dollarRate > 0 ? dollarRate.toFixed(2) : '...'}</span>
+              <span className="text-[#006064]">EUR {euroRate > 0 ? euroRate.toFixed(2) : '...'}</span>
+            </div>
+
+            {/* Notifications */}
+            <button className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-surface-container-lowest border border-surface-container/60 text-on-surface-variant hover:bg-surface-container-low transition-colors relative shadow-sm">
+              <span className="material-symbols-outlined text-[20px]">notifications</span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-error border-2 border-surface-container-lowest rounded-full"></span>
+            </button>
+
+            {/* User Profile */}
+            <div className="flex items-center gap-3 pl-2 sm:pl-4 sm:border-l border-surface-container/60 cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-on-surface leading-tight">Admin</p>
+                <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">Conectado</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-on-primary font-black shadow-sm shrink-0">
+                A
+              </div>
+            </div>
+          </div>
+        </div>
 
         {activeTab === "inicio" && (
           <>
+            <div className="mb-8">
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-on-surface mb-1">Buen día, Admin.</h2>
+              <p className="text-xs md:text-sm text-on-surface-variant">Así es como va el pulso de la juguetería hoy.</p>
+            </div>
             {/* Bento Metrics */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-              <div className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_12px_40px_rgba(146,63,95,0.06)] flex flex-col justify-between h-48 group hover:scale-[1.02] transition-all duration-300">
-                <div className="flex justify-between items-start">
-                  <div className="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
-                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>inventory_2</span>
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+              <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_8px_30px_rgba(146,63,95,0.03)] border border-primary/5 flex items-center justify-between group hover:scale-[1.01] transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container shadow-sm">
+                    <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>inventory_2</span>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-on-surface-variant mb-1">Total de Productos</p>
-                  <h3 className="text-3xl font-bold text-on-surface">{loading ? "..." : metrics.totalProducts}</h3>
+                  <div>
+                    <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Total de Productos</p>
+                    <h3 className="text-2xl font-black text-on-surface mt-0.5">{loading ? "..." : metrics.totalProducts}</h3>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_12px_40px_rgba(146,63,95,0.06)] flex flex-col justify-between h-48 group hover:scale-[1.02] transition-all duration-300">
-                <div className="flex justify-between items-start">
-                  <div className="w-12 h-12 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
-                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>local_shipping</span>
+              <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_8px_30px_rgba(146,63,95,0.03)] border border-primary/5 flex items-center justify-between group hover:scale-[1.01] transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-error-container/20 flex items-center justify-center text-error shadow-sm">
+                    <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Poco Inventario</p>
+                    <h3 className="text-2xl font-black text-on-surface mt-0.5">{loading ? "..." : metrics.lowStock}</h3>
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-on-surface-variant mb-1">Pedidos Activos</p>
-                  <h3 className="text-3xl font-bold text-on-surface">{metrics.activeOrders}</h3>
-                </div>
-              </div>
-
-              <div className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_12px_40px_rgba(146,63,95,0.06)] flex flex-col justify-between h-48 group hover:scale-[1.02] transition-all duration-300">
-                <div className="flex justify-between items-start">
-                  <div className="w-12 h-12 rounded-full bg-error-container/20 flex items-center justify-center text-error">
-                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-                  </div>
-                  <button onClick={() => setActiveTab("inventario")} className="text-xs font-bold text-error underline decoration-error/30 underline-offset-4">Revisar</button>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-on-surface-variant mb-1">Poco Inventario</p>
-                  <h3 className="text-3xl font-bold text-on-surface">{loading ? "..." : metrics.lowStock}</h3>
-                </div>
+                <button onClick={() => setActiveTab("inventario")} className="text-[10px] font-black uppercase tracking-widest text-error bg-error/5 hover:bg-error hover:text-white px-4 py-2.5 rounded-full border border-error/10 transition-all">
+                  Revisar
+                </button>
               </div>
             </section>
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Left Column: Quick Actions */}
+              <div className="space-y-8">
+                {/* Quick Actions Panel */}
+                <div className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.04)] border border-primary/5">
+                  <h3 className="text-lg font-black text-on-surface mb-6 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">bolt</span>
+                    Accesos Rápidos
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <button
+                      onClick={() => setIsAddModalOpen(true)}
+                      className="flex flex-col items-center justify-center p-5 rounded-3xl bg-primary/5 hover:bg-primary/10 text-primary transition-all duration-300 group border border-primary/10"
+                    >
+                      <span className="material-symbols-outlined text-3xl mb-2 group-hover:scale-110 transition-transform">add_box</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-center">Nuevo Peluche</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab("catalogo")}
+                      className="flex flex-col items-center justify-center p-5 rounded-3xl bg-secondary/5 hover:bg-secondary/10 text-secondary transition-all duration-300 group border border-secondary/10"
+                    >
+                      <span className="material-symbols-outlined text-3xl mb-2 group-hover:scale-110 transition-transform">auto_stories</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-center">Ver Catálogo</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab("inventario")}
+                      className="flex flex-col items-center justify-center p-5 rounded-3xl bg-[#615b4c]/5 hover:bg-[#615b4c]/10 text-[#615b4c] transition-all duration-300 group border border-[#615b4c]/10"
+                    >
+                      <span className="material-symbols-outlined text-3xl mb-2 group-hover:scale-110 transition-transform">inventory_2</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-center">Ajustar Stock</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab("config")}
+                      className="flex flex-col items-center justify-center p-5 rounded-3xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-all duration-300 group border border-surface-container-high"
+                    >
+                      <span className="material-symbols-outlined text-3xl mb-2 group-hover:scale-110 transition-transform">settings</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-center">Ajustes</span>
+                    </button>
+                  </div>
+                </div>
+
+
+              </div>
+
+              {/* Right Column: Inventory Alerts & System Status */}
+              <div className="space-y-8">
+                {/* Stock Alerts Card */}
+                <div className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.04)] border border-primary/5">
+                  <h3 className="text-lg font-black text-on-surface mb-6 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-error">warning</span>
+                    Alertas de Stock
+                  </h3>
+                  <div className="space-y-4">
+                    {loading ? (
+                      <p className="text-center text-sm text-on-surface-variant">Cargando...</p>
+                    ) : (
+                      (() => {
+                        const lowStockItems = inventory.filter((item: any) => {
+                          const qty = item.inventory?.[0]?.quantity ?? 0;
+                          return qty <= 2;
+                        });
+
+                        if (lowStockItems.length === 0) {
+                          return (
+                            <div className="flex flex-col items-center justify-center py-6 text-center">
+                              <span className="material-symbols-outlined text-green-500 text-3xl mb-2">check_circle</span>
+                              <p className="text-xs font-bold text-on-surface">¡Todo al día!</p>
+                              <p className="text-[10px] text-on-surface-variant">Inventario saludable.</p>
+                            </div>
+                          );
+                        }
+
+                        return lowStockItems.map((item: any) => {
+                          const qty = item.inventory?.[0]?.quantity ?? 0;
+                          return (
+                            <div key={item.id} className="p-4 rounded-2xl bg-surface-container-low/50 border border-primary/5 flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-bold text-on-surface">{item.name}</p>
+                                <p className="text-[9px] uppercase tracking-wider font-semibold text-on-surface-variant">
+                                  {qty === 0 ? "Agotado" : `Solo ${qty} unidades`}
+                                </p>
+                              </div>
+                              <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase ${
+                                qty === 0 
+                                  ? "bg-error/10 text-error animate-pulse" 
+                                  : "bg-amber-500/10 text-amber-600"
+                              }`}>
+                                {qty === 0 ? "Agotado" : "Bajo"}
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()
+                    )}
+                  </div>
+                </div>
+
+
+              </div>
+            </div>
           </>
         )}
 
