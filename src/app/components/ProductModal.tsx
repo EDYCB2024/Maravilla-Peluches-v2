@@ -56,7 +56,7 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
         </button>
 
         {/* Image Section */}
-        <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-surface-container-high relative">
+        <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-white relative">
             {!isFallback ? (
                 <img 
                     src={imgSrc} 

@@ -1369,7 +1369,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8">
               {/* Columna Izquierda: Imagen y Acciones de Imagen */}
               <div className="space-y-4">
-                <div className="relative group w-full aspect-square rounded-3xl bg-surface-container-low overflow-hidden shadow-sm border border-primary/10">
+                <div className="relative group w-full aspect-square rounded-3xl bg-white overflow-hidden shadow-sm border border-primary/10">
                   <img
                     src={editingProduct.product_images?.find((img: any) => img.is_primary)?.url || editingProduct.product_images?.[0]?.url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${editingProduct.id}.jpg?v=${refreshKey}`}
                     alt={editingProduct.name}
