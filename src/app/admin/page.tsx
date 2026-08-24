@@ -1373,7 +1373,7 @@ export default function AdminPage() {
                   <img
                     src={editingProduct.product_images?.find((img: any) => img.is_primary)?.url || editingProduct.product_images?.[0]?.url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${editingProduct.id}.jpg?v=${refreshKey}`}
                     alt={editingProduct.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain p-4"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1559411634-1925b425f778?auto=format&fit=crop&q=80&w=300";
                     }}

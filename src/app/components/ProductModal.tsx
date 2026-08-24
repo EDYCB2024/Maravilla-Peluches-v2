@@ -61,7 +61,7 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
                 <img 
                     src={imgSrc} 
                     alt={product.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain p-6"
                     onError={() => setIsFallback(true)}
                 />
             ) : (
