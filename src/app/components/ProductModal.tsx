@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useCart } from "../context/CartContext";
 
 interface ProductModalProps {
   product: any;
@@ -12,9 +13,21 @@ interface ProductModalProps {
 export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 }: ProductModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isFallback, setIsFallback] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const { addToCart, setIsCartOpen } = useCart();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const imgSrc = `${supabaseUrl}/storage/v1/object/public/product-images/${product.id}.jpg`;
   const vesPrice = dollarRate > 0 ? (product.price * dollarRate).toFixed(2) : null;
+
+  const handleAddToCart = () => {
+    addToCart(product);
+    setIsAdding(true);
+    setTimeout(() => {
+      setIsAdding(false);
+      onClose();
+      setIsCartOpen(true);
+    }, 500);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -147,15 +160,24 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
 
             <div>
               <button 
+                  onClick={handleAddToCart}
                   disabled={product.is_active === false}
                   className={`w-full py-4 rounded-full font-black text-base shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${
-                      product.is_active !== false 
+                      isAdding 
+                      ? "bg-green-600 text-white scale-[0.98]"
+                      : product.is_active !== false 
                       ? "bg-gradient-to-r from-primary to-primary-container text-on-primary hover:scale-[1.01] active:scale-95" 
                       : "bg-surface-container-high text-on-surface/40 cursor-not-allowed"
                   }`}
               >
-                  <span className="material-symbols-outlined text-xl">shopping_cart</span>
-                  {product.is_active !== false ? "Añadir al Carrito" : "No Disponible"}
+                  <span className="material-symbols-outlined text-xl">
+                    {isAdding ? "check" : "shopping_cart"}
+                  </span>
+                  {isAdding 
+                    ? "¡Añadido al Carrito!" 
+                    : product.is_active !== false 
+                    ? "Añadir al Carrito" 
+                    : "No Disponible"}
               </button>
               
               <p className="mt-4 text-center text-[9px] uppercase tracking-widest text-on-surface-variant opacity-40 font-bold">
