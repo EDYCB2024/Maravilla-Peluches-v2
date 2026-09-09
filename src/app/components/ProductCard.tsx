@@ -53,34 +53,18 @@ export default function ProductCard({ product, dollarRate = 0 }: ProductCardProp
               />
             </div>
           )}
-          {product.is_active === false ? (
+          {product.is_active === false && (
             <span className="absolute top-4 left-4 z-10 px-4 py-1.5 rounded-full text-[12px] font-black uppercase bg-error text-on-error shadow-lg">
               AGOTADO
             </span>
-          ) : (
-            product.inventory?.status && (
-              <span className={`absolute top-4 left-4 z-10 px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${
-                product.inventory.status === 'disponible' || product.inventory.status === 'bajo inventario' 
-                  ? 'bg-secondary-container text-on-secondary-container' 
-                  : 'bg-highlight-container text-on-highlight-container'
-              }`}>
-                {product.inventory.status === 'bajo inventario' ? 'disponible' : product.inventory.status}
-              </span>
-            )
           )}
         </div>
-        {/* Info Adicional: Tamaño y Stock */}
+        {/* Info Adicional: Tamaño */}
         <div className="flex flex-wrap gap-2 mb-4 h-6">
           {product.size && (
             <span className="px-2.5 py-1 bg-secondary/5 text-secondary text-[9px] font-black uppercase tracking-widest rounded-lg border border-secondary/10 flex items-center gap-1.5 shadow-sm">
               <span className="material-symbols-outlined text-[11px]">straighten</span>
               {product.size}
-            </span>
-          )}
-          {stock !== undefined && product.is_active !== false && (
-            <span className="px-2.5 py-1 bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest rounded-lg border border-primary/10 flex items-center gap-1.5 shadow-sm">
-              <span className="material-symbols-outlined text-[11px]">inventory_2</span>
-              {stock} disponibles
             </span>
           )}
         </div>

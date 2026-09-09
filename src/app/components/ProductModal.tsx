@@ -128,15 +128,15 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
                           </div>
                       )}
                       
-                      {product.inventory?.quantity !== undefined && (
+                      {product.is_active === false && (
                           <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${product.inventory.quantity > 0 ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
-                                  <span className="material-symbols-outlined text-lg">{product.inventory.quantity > 0 ? 'inventory_2' : 'block'}</span>
+                              <div className="w-8 h-8 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center shrink-0">
+                                  <span className="material-symbols-outlined text-lg">block</span>
                               </div>
                               <div>
                                   <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant opacity-60">Disponibilidad</p>
-                                  <p className={`text-xs font-bold ${product.inventory.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {product.inventory.quantity > 0 ? `${product.inventory.quantity} unidades en stock` : 'Agotado actualmente'}
+                                  <p className="text-xs font-bold text-red-600">
+                                      Agotado actualmente
                                   </p>
                               </div>
                           </div>
