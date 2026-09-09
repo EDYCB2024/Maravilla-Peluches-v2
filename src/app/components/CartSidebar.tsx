@@ -42,11 +42,14 @@ export default function CartSidebar({ dollarRate = 0 }: { dollarRate?: number })
               {cart.length > 0 ? (
                 cart.map((item) => (
                   <div key={item.id} className="flex gap-4 group">
-                    <div className="w-20 h-20 rounded-2xl bg-surface-container-low overflow-hidden flex-shrink-0 border border-surface-container">
+                    <div className="w-20 h-20 rounded-2xl bg-surface-container-low overflow-hidden flex-shrink-0 border border-surface-container relative flex items-center justify-center p-1">
                       <img 
                         src={item.image} 
                         alt={item.name} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                        className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-500" 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='%23923f5f' opacity='0.3'%3E%3Cpath d='M48 20h-8v-4c0-4.4-3.6-8-8-8s-8 3.6-8 8v4h-8c-2.2 0-4 1.8-4 4v32c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4V24c0-2.2-1.8-4-4-4zM28 16c0-2.2 1.8-4 4-4s4 1.8 4 4v4H28v-4zm20 40H16V24h32v32z'/%3E%3Cpath d='M36 32h-8c-1.1 0-2 .9-2 2s.9 2 2 2h8c1.1 0 2-.9 2-2s-.9-2-2-2z'/%3E%3C/svg%3E";
+                        }}
                       />
                     </div>
                     <div className="flex-1 flex flex-col">

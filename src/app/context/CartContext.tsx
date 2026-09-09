@@ -46,11 +46,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [cart]);
 
   const addToCart = (product: any) => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.id}.jpg`;
+
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         return prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: item.quantity + 1, image: imageUrl } : item
         );
       }
       return [
@@ -60,7 +63,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           name: product.name,
           price: product.price,
           quantity: 1,
-          image: product.product_images?.[0]?.url || `/images/${product.id}.jpg`,
+          image: imageUrl,
         },
       ];
     });
