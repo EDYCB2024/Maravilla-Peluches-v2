@@ -43,7 +43,7 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
 
       {/* Modal Content */}
       <div 
-        className={`relative w-full max-w-5xl bg-surface rounded-[2.5rem] overflow-hidden shadow-[0_32px_80px_rgba(146,63,95,0.2)] flex flex-col md:flex-row transition-all duration-500 transform ${
+        className={`relative w-full max-w-5xl bg-surface rounded-[2.5rem] overflow-hidden shadow-[0_32px_80px_rgba(146,63,95,0.2)] flex flex-col md:flex-row transition-all duration-500 transform max-h-[90vh] overflow-y-auto ${
           isOpen ? "scale-100 translate-y-0" : "scale-95 translate-y-8"
         }`}
       >
@@ -56,12 +56,12 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
         </button>
 
         {/* Image Section */}
-        <div className="w-full md:w-1/2 h-[300px] md:h-auto bg-white relative flex items-center justify-center p-6">
+        <div className="w-full md:w-1/2 h-[350px] md:h-auto max-h-[500px] md:max-h-[600px] bg-white relative flex items-center justify-center p-6 shrink-0">
             {!isFallback ? (
                 <img 
                     src={imgSrc} 
                     alt={product.name}
-                    className="max-w-full max-h-full w-auto h-auto rounded-3xl shadow-md"
+                    className="max-w-full max-h-full w-auto h-auto object-contain rounded-3xl shadow-sm"
                     onError={() => setIsFallback(true)}
                 />
             ) : (
