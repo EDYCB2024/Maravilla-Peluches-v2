@@ -6,6 +6,7 @@ import HeroImage from "./components/HeroImage";
 import CartStatus from "./components/CartStatus";
 import CartSidebar from "./components/CartSidebar";
 import WhatsAppButton from "./components/WhatsAppButton";
+import ScrollToTopButton from "./components/ScrollToTopButton";
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +31,11 @@ interface Category {
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; q?: string }>;
 }) {
   const resolvedParams = await searchParams;
   const currentCategory = resolvedParams.category || "Todos";
+  const searchQuery = resolvedParams.q ? resolvedParams.q.toLowerCase().trim() : "";
 
   // Fetch data on the server
   const [productsRes, categoriesRes, exchangeRes, euroRes, settingsRes] = await Promise.all([
@@ -68,9 +70,16 @@ export default async function HomePage({
     .sort((a, b) => a.name.localeCompare(b.name));
   const categories: Category[] = categoriesRes.data || [];
 
-  const filteredProducts = currentCategory === "Todos"
+  let filteredProducts = currentCategory === "Todos"
     ? products
     : products.filter(p => p.categories?.name === currentCategory);
+
+  if (searchQuery) {
+    filteredProducts = filteredProducts.filter(p => 
+      p.name.toLowerCase().includes(searchQuery) || 
+      (p.description && p.description.toLowerCase().includes(searchQuery))
+    );
+  }
 
   return (
     <div className="bg-surface text-on-surface">
@@ -245,6 +254,7 @@ export default async function HomePage({
         </div>
       </footer>
       <WhatsAppButton phone={siteSettings.phone} />
+      <ScrollToTopButton />
     </div>
   );
 }

@@ -36,10 +36,10 @@ export default function ProductCard({ product, dollarRate = 0 }: ProductCardProp
         onClick={() => setIsModalOpen(true)}
         className={`group relative flex flex-col bg-surface-container-lowest rounded-[2rem] p-5 shadow-[0_12px_40px_rgba(146,63,95,0.08)] transition-all duration-300 cursor-pointer ${product.is_active === false ? 'opacity-80' : 'hover:scale-[1.02]'}`}
       >
-        <div className="relative w-full aspect-square overflow-hidden rounded-3xl mb-6 bg-surface-container-high flex items-center justify-center">
+        <div className="relative w-full aspect-[4/5] overflow-hidden rounded-3xl mb-6 bg-surface-container flex items-center justify-center">
           {!isFallback ? (
             <img 
-              className={`w-full h-full object-cover transition-transform duration-500 ${product.is_active === false ? 'grayscale' : 'group-hover:scale-110'}`} 
+              className={`w-full h-full object-cover rounded-3xl transition-transform duration-500 ${product.is_active === false ? 'grayscale' : 'group-hover:scale-105'}`} 
               src={imgSrc} 
               alt={product.name}
               onError={() => setIsFallback(true)}

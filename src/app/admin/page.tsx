@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import ScrollToTopButton from "../components/ScrollToTopButton";
 
 interface InventoryItem {
   id: string;
@@ -270,7 +271,7 @@ export default function AdminPage() {
         const [productsRes, categoriesRes, suppliersRes, settingsRes, ordersRes, exchangeRes, euroRes] = await Promise.all([
           supabase
             .from("products")
-            .select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
+            .select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
           supabase.from("categories").select("*").order("position", { ascending: true }),
           supabase.from("suppliers").select("*"),
           supabase.from("settings").select("*").single(),
@@ -427,7 +428,7 @@ export default function AdminPage() {
   const handleAddProduct = async () => {
     try {
       setLoading(true);
-      const slug = newProduct.name
+      const baseSlug = newProduct.name
         .toLowerCase()
         .trim()
         .normalize("NFD")
@@ -435,6 +436,8 @@ export default function AdminPage() {
         .replace(/[^\w\s-]/g, "")
         .replace(/[\s_-]+/g, "-")
         .replace(/^-+|-+$/g, "");
+      
+      const slug = `${baseSlug}-${Date.now().toString(36)}`;
 
       const insertData = {
         name: newProduct.name,
@@ -496,7 +499,7 @@ export default function AdminPage() {
       // Refetch products
       const { data: updatedProducts } = await supabase
         .from("products")
-        .select("id, name, price, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary), is_active");
+        .select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)");
       if (updatedProducts) setInventory(updatedProducts as any);
       alert("¡Producto añadido con éxito!");
     } catch (error: any) {
@@ -744,7 +747,7 @@ export default function AdminPage() {
       // Refetch categories & products to sync labels
       const [catData, prodData] = await Promise.all([
         supabase.from("categories").select("*").order("position", { ascending: true }),
-        supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
+        supabase.from("products").select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
       ]);
 
       if (catData.data) setCategories(catData.data);
@@ -779,7 +782,7 @@ export default function AdminPage() {
           // Refetch categories & products
           const [catData, prodData] = await Promise.all([
             supabase.from("categories").select("*").order("position", { ascending: true }),
-            supabase.from("products").select("id, name, price, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
+            supabase.from("products").select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)")
           ]);
 
           if (catData.data) setCategories(catData.data);
@@ -1290,13 +1293,13 @@ export default function AdminPage() {
         <div className="px-4 py-4 border-t border-surface-variant/10">
           <button
             onClick={() => {
-              setIsAddOrderOpen(true);
+              setIsAddModalOpen(true);
               setIsSidebarOpen(false);
             }}
             className="w-full py-3 bg-primary text-on-primary rounded-full font-bold shadow-md hover:scale-105 active:scale-95 transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2"
           >
-            <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
-            Registrar Venta
+            <span className="material-symbols-outlined text-[18px]">add_box</span>
+            Registrar Producto
           </button>
         </div>
 
@@ -1319,19 +1322,22 @@ export default function AdminPage() {
       {/* Modal Añadir Producto */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-container-lowest rounded-[2rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300 relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-3xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsAddModalOpen(false)}
               className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
-            <h3 className="text-2xl font-black text-on-surface mb-6">Nuevo Producto</h3>
-            <div className="space-y-4">
-              {/* Image Upload Box */}
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Imagen del Producto</label>
-                <div className="relative group w-32 h-32 mx-auto">
+            <h3 className="text-2xl font-black text-on-surface mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">add_circle</span>
+              Nuevo Producto
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8">
+              {/* Columna Izquierda: Imagen */}
+              <div className="space-y-4">
+                <div className="relative group w-full aspect-square mx-auto">
                   <input
                     type="file"
                     accept="image/*"
@@ -1341,113 +1347,130 @@ export default function AdminPage() {
                   />
                   <label
                     htmlFor="new-product-image"
-                    className="flex flex-col items-center justify-center w-full h-full bg-surface-container-low rounded-[2rem] border-2 border-dashed border-primary/20 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer overflow-hidden"
+                    className="flex flex-col items-center justify-center w-full h-full bg-surface-container-low rounded-[2rem] border-2 border-dashed border-primary/20 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer overflow-hidden shadow-sm"
                   >
                     {newProductImage ? (
                       <img
                         src={URL.createObjectURL(newProductImage)}
                         alt="Preview"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover p-2 rounded-[2rem]"
                       />
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-4xl text-primary/40 mb-1">add_a_photo</span>
-                        <span className="text-[8px] font-bold text-on-surface-variant uppercase tracking-widest text-center px-2">Subir Foto</span>
+                        <span className="material-symbols-outlined text-4xl text-primary/40 mb-2">add_a_photo</span>
+                        <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest text-center px-4">Subir Foto</span>
                       </>
                     )}
                   </label>
                   {newProductImage && (
                     <button
                       onClick={(e) => { e.preventDefault(); setNewProductImage(null); }}
-                      className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-error text-white flex items-center justify-center shadow-lg hover:scale-110 transition-all z-10"
+                      className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-error text-white flex items-center justify-center shadow-lg hover:scale-110 transition-all z-10"
+                      title="Eliminar Foto"
                     >
-                      <span className="material-symbols-outlined text-xs">close</span>
+                      <span className="material-symbols-outlined text-sm">close</span>
                     </button>
                   )}
                 </div>
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1 text-center">Gestión de Imagen</p>
+                  <label 
+                    htmlFor="new-product-image"
+                    className="w-full cursor-pointer bg-secondary/5 text-secondary text-[10px] font-black py-3 rounded-2xl hover:bg-secondary/10 transition-all flex items-center justify-center gap-2 border border-secondary/10"
+                  >
+                    <span className="material-symbols-outlined text-sm">upload</span>
+                    {newProductImage ? 'CAMBIAR FOTO' : 'SUBIR FOTO'}
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre <span className="text-error font-black text-xs">*</span></label>
-                <input
-                  type="text"
-                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                  placeholder="Ej. Stitch Galáctico"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              {/* Columna Derecha: Formulario */}
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($) <span className="text-error font-black text-xs">*</span></label>
-                  <input
-                    type="number"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                    value={newProduct.price === 0 ? "" : newProduct.price}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setNewProduct({ ...newProduct, price: val === "" ? 0 : parseFloat(val) });
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Cantidad</label>
-                  <input
-                    type="number"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                    value={newProduct.quantity === 0 ? "" : newProduct.quantity}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setNewProduct({ ...newProduct, quantity: val === "" ? 0 : parseInt(val) });
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre <span className="text-error font-black text-xs">*</span></label>
                   <input
                     type="text"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                    placeholder="Ej: 30cm"
-                    value={newProduct.size}
-                    onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
+                    value={newProduct.name}
+                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                    placeholder="Ej. Stitch Galáctico"
                   />
                 </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($) <span className="text-error font-black text-xs">*</span></label>
+                    <input
+                      type="number"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      value={newProduct.price === 0 ? "" : newProduct.price}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewProduct({ ...newProduct, price: val === "" ? 0 : parseFloat(val) });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Stock Inicial</label>
+                    <input
+                      type="number"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      value={newProduct.quantity === 0 ? "" : newProduct.quantity}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewProduct({ ...newProduct, quantity: val === "" ? 0 : parseInt(val) });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño</label>
+                    <input
+                      type="text"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      placeholder="Ej: 30cm"
+                      value={newProduct.size}
+                      onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Categoría</label>
+                    <select
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
+                      value={newProduct.category_id}
+                      onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+                    >
+                      <option value="">...</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Categoría</label>
-                  <select
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                    value={newProduct.category_id}
-                    onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Descripción</label>
+                  <textarea
+                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none text-sm"
+                    value={newProduct.description}
+                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                    placeholder="Detalles del producto..."
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all"
                   >
-                    <option value="">...</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleAddProduct}
+                    disabled={!newProduct.name || !newProduct.price}
+                    className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                  >
+                    {loading ? "Guardando..." : "Guardar"}
+                  </button>
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Descripción</label>
-                <textarea
-                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none h-24 resize-none text-sm"
-                  value={newProduct.description}
-                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                  placeholder="Detalles del producto..."
-                />
-              </div>
-            </div>
-            <div className="flex gap-4 mt-8">
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAddProduct}
-                disabled={!newProduct.name || !newProduct.price}
-                className="flex-1 py-3.5 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
-              >
-                {loading ? "Guardando..." : "Guardar"}
-              </button>
             </div>
           </div>
         </div>
@@ -2312,10 +2335,10 @@ export default function AdminPage() {
           </div>
         </div>
       )}
-
-      <main className="md:ml-64 flex-1 p-4 md:p-8 lg:p-12 transition-all">
-        {/* Sticky Top Bar */}
-        <div className="sticky top-2 md:top-3 z-40 bg-surface-container-lowest/90 backdrop-blur-xl border border-surface-container/60 rounded-2xl md:rounded-3xl px-4 md:px-6 py-3 -mt-2 md:-mt-4 lg:-mt-6 mb-8 flex items-center justify-between gap-4 transition-all duration-300 shadow-md">
+      <ScrollToTopButton />
+      <main className="md:ml-64 flex-1 transition-all">
+        {/* Top Navbar Fija */}
+        <div className="sticky top-0 z-40 bg-surface-container-lowest/95 backdrop-blur-xl border-b border-surface-container/60 px-4 md:px-8 py-4 mb-8 flex items-center justify-between gap-4 transition-all duration-300 shadow-sm">
           {/* Left: Mobile Menu & Search */}
           <div className="flex items-center gap-4 flex-1">
             <button
