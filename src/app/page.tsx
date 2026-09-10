@@ -7,7 +7,7 @@ import CartStatus from "./components/CartStatus";
 import CartSidebar from "./components/CartSidebar";
 import WhatsAppButton from "./components/WhatsAppButton";
 import ScrollToTopButton from "./components/ScrollToTopButton";
-import ContactSection from "./components/ContactSection";
+
 
 export const dynamic = "force-dynamic";
 
@@ -86,22 +86,21 @@ export default async function HomePage({
     <div className="bg-surface text-on-surface">
       <CartSidebar dollarRate={euroRate} />
       {/* TopNavBar */}
-      <nav className="fixed top-0 w-full z-50 bg-[#f7f6f3]/70 dark:bg-[#1a1a19]/70 backdrop-blur-md shadow-[0_12px_40px_rgba(146,63,95,0.08)] h-20 flex justify-between items-center px-8 font-plus-jakarta tracking-tight">
+      <nav className="fixed top-0 w-full z-50 bg-[#f7f6f3]/80 dark:bg-[#1a1a19]/80 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_10px_30px_rgba(146,63,95,0.05)] h-20 flex justify-between items-center px-6 md:px-12 font-plus-jakarta tracking-tight transition-all duration-300">
         <a
-          className="text-2xl font-bold text-[#2e2f2d] dark:text-[#f7f6f3] hover:scale-105 transition-transform duration-200 cursor-pointer"
+          className="text-2xl font-black text-[#2e2f2d] dark:text-[#f7f6f3] hover:text-primary transition-all duration-300 cursor-pointer"
           href="/"
         >
           Maravilla Peluches
         </a>
-        <div className="hidden md:flex items-center gap-8">
-          <a className="text-[#923f5f] dark:text-[#f48fb1] border-b-2 border-[#923f5f] pb-1 hover:scale-105 transition-transform duration-200" href="/">Tienda</a>
-          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="/catalog">Catálogo</a>
-          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#nosotros">Nosotros</a>
+        <div className="hidden md:flex items-center gap-8 text-sm font-semibold">
+          <a className="text-[#923f5f] dark:text-[#f48fb1] border-b-2 border-[#923f5f] pb-1 transition-all duration-300" href="/">Tienda</a>
+          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-primary hover:-translate-y-0.5 transition-all duration-300" href="/catalog">Catálogo</a>
         </div>
         <div className="flex items-center gap-6">
           {euroRate > 0 && (
-            <div className="hidden sm:flex flex-col items-end border-r border-on-surface/10 pr-6 mr-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">Euro BCV</span>
+            <div className="hidden sm:flex flex-col items-end border-r border-on-surface/10 pr-6 mr-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">Tasa Oficial Euro</span>
               <span className="text-sm font-black text-primary">Bs. {euroRate.toFixed(2)}</span>
             </div>
           )}
@@ -111,104 +110,95 @@ export default async function HomePage({
 
       <main className="pt-20">
         {/* Hero Section */}
-        <section className="relative px-8 py-16 md:py-24 overflow-hidden bg-surface-container-low">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12 relative z-10">
-            <div className="flex-1 space-y-6">
-              <span className="inline-block px-4 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container font-medium text-sm tracking-wide">
-                La Colección Más Tierna
-              </span>
-              <h1 className="text-5xl md:text-7xl font-extrabold text-on-surface tracking-tight leading-[1.1]">
-                Un Amigo <br /><span className="text-primary italic">para Siempre.</span>
+        <section className="relative px-6 md:px-12 py-16 md:py-24 overflow-hidden bg-gradient-to-b from-surface-container-low via-surface-container-low/60 to-surface">
+          {/* Subtle decorative background circles */}
+          <div className="absolute top-10 left-1/4 w-96 h-96 bg-primary-container/20 rounded-full blur-[120px] pointer-events-none"></div>
+          <div className="absolute top-20 right-1/4 w-96 h-96 bg-secondary-container/25 rounded-full blur-[130px] pointer-events-none"></div>
+
+          <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-12 lg:gap-16 relative z-10">
+            {/* Left Content */}
+            <div className="flex-1 space-y-7 text-center lg:text-left">
+
+              
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-on-surface tracking-tight leading-[1.08]">
+                Un Abrazo <br />
+                <span className="font-serif italic font-normal text-primary">
+                  para Siempre.
+                </span>
               </h1>
-              <p className="text-on-surface-variant text-lg max-w-lg leading-relaxed">
-                Hecho a mano con los materiales más suaves del mundo. Cada amigo de Maravilla Peluches está diseñado para ser abrazado y durar toda una vida de momentos acogedores.
+
+              <p className="text-on-surface-variant text-base sm:text-lg lg:text-xl max-w-xl mx-auto lg:mx-0 leading-relaxed font-normal">
+                Hecho a mano con materiales hipoalergénicos de máxima suavidad. Diseñados para acompañarte en los momentos más acogedores de tu vida.
               </p>
-              <div className="pt-4 flex gap-4">
+
+              <div className="pt-2 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <a
                   href="/catalog"
-                  className="px-8 py-4 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold shadow-lg hover:scale-105 active:scale-95 transition-all text-center"
+                  className="px-8 py-4 rounded-full bg-gradient-to-r from-primary via-[#a84d70] to-primary-container text-on-primary font-bold shadow-[0_12px_28px_rgba(146,63,95,0.25)] hover:shadow-[0_18px_36px_rgba(146,63,95,0.35)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] text-center flex items-center justify-center gap-2"
                 >
-                  Explorar Catálogo
-                </a>
-                <a
-                  href="#nosotros"
-                  className="px-8 py-4 rounded-full text-primary font-bold border-2 border-primary/10 hover:bg-primary/5 transition-all text-center"
-                >
-                  Nuestra Historia
+                  <span>Explorar Catálogo</span>
+                  <span className="material-symbols-outlined text-lg">arrow_forward</span>
                 </a>
               </div>
             </div>
-            <div className="flex-1 relative">
-              <div className="absolute inset-0 bg-primary-container/20 blur-[100px] rounded-full"></div>
-              <div className="relative z-10 w-full h-[500px] -rotate-2 hover:rotate-0 transition-transform duration-500 overflow-hidden rounded-xl shadow-[0_20px_60px_rgba(146,63,95,0.12)]">
+
+            {/* Right Hero Image Showcase with Stitch */}
+            <div className="flex-1 relative w-full max-w-md lg:max-w-none mx-auto">
+              {/* Soft Ambient Glow Aura */}
+              <div className="absolute -inset-6 bg-gradient-to-tr from-primary-container/30 via-secondary-container/40 to-primary/20 blur-[90px] rounded-full animate-pulse-glow pointer-events-none"></div>
+
+              {/* Main Image Frame */}
+              <div className="relative z-10 w-full h-[460px] sm:h-[520px] rounded-[2.5rem] overflow-hidden shadow-[0_25px_65px_-15px_rgba(146,63,95,0.2)] border-4 border-white/80 dark:border-white/10 group transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-2 hover:shadow-[0_35px_75px_-15px_rgba(146,63,95,0.28)]">
                 <HeroImage
-                  initialSrc="/images/hero_high_res.png"
-                  fallbackSrc="https://images.unsplash.com/photo-1559411634-1925b425f778?auto=format&fit=crop&q=80&w=1000"
-                  alt="Portada"
+                  initialSrc="/images/stitch_hero.jpg"
+                  fallbackSrc="/images/hero_high_res.png"
+                  alt="Peluche Stitch Edición Especial"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
               </div>
+
             </div>
           </div>
         </section>
 
         {/* Brand Features & CTA Section */}
         <section className="px-8 py-20 max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <div className="p-8 rounded-[2rem] bg-surface-container-low/60 border border-surface-container flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+            <div className="p-8 rounded-[2rem] bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/[0.04] flex flex-col items-center text-center space-y-4 hover-lift shadow-sm hover:shadow-xl">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-transform duration-300 group-hover:scale-110">
                 <span className="material-symbols-outlined text-3xl font-black">favorite</span>
               </div>
               <h3 className="text-xl font-bold text-on-surface">Materiales Extra Suaves</h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
+              <p className="text-sm text-on-surface-variant leading-relaxed font-normal">
                 Seleccionamos telas hipoalergénicas y textiles de la más alta calidad para garantizar caricias inolvidables.
               </p>
             </div>
 
-            <div className="p-8 rounded-[2rem] bg-surface-container-low/60 border border-surface-container flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+            <div className="p-8 rounded-[2rem] bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/[0.04] flex flex-col items-center text-center space-y-4 hover-lift shadow-sm hover:shadow-xl">
+              <div className="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary transition-transform duration-300 group-hover:scale-110">
                 <span className="material-symbols-outlined text-3xl font-black">local_shipping</span>
               </div>
               <h3 className="text-xl font-bold text-on-surface">Envíos a Nivel Nacional</h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
+              <p className="text-sm text-on-surface-variant leading-relaxed font-normal">
                 Llevamos la ternura directamente a la puerta de tu hogar o a la persona que deseas sorprender.
               </p>
             </div>
 
-            <div className="p-8 rounded-[2rem] bg-surface-container-low/60 border border-surface-container flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center">
-                <span className="material-symbols-outlined text-3xl font-black">card_giftcard</span>
+            <div className="p-8 rounded-[2rem] bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/[0.04] flex flex-col items-center text-center space-y-4 hover-lift shadow-sm hover:shadow-xl">
+              <div className="w-16 h-16 rounded-2xl bg-tertiary-container text-on-tertiary-container flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                <span className="material-symbols-outlined text-3xl font-black">support_agent</span>
               </div>
-              <h3 className="text-xl font-bold text-on-surface">Empaque Especial</h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
-                Cada pedido incluye nuestro empaque preparado listo para regalar en ocasiones especiales.
+              <h3 className="text-xl font-bold text-on-surface">Atención Personalizada</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed font-normal">
+                Te asesoramos directamente por WhatsApp para ayudarte a elegir el peluche perfecto para esa persona especial.
               </p>
             </div>
           </div>
 
-          {/* Banner CTA Catálogo */}
-          <div className="p-12 md:p-16 rounded-[2.5rem] bg-gradient-to-r from-primary to-primary-container text-on-primary flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl relative overflow-hidden">
-            <div className="space-y-4 max-w-xl text-center md:text-left z-10">
-              <span className="text-xs font-black uppercase tracking-widest bg-white/20 px-4 py-1.5 rounded-full inline-block">
-                Catálogo Disponible
-              </span>
-              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-                Descubre todos nuestros modelos y tamaños en el Catálogo
-              </h2>
-              <p className="text-on-primary/90 text-sm md:text-base leading-relaxed">
-                Encuentra el compañero perfecto o el regalo ideal navegando en nuestra colección completa.
-              </p>
-            </div>
-            <a
-              href="/catalog"
-              className="px-10 py-5 rounded-full bg-white text-primary font-extrabold shadow-lg hover:scale-105 active:scale-95 transition-all text-center whitespace-nowrap z-10"
-            >
-              Ver Todo el Catálogo
-            </a>
-          </div>
+
         </section>
 
-        {/* About & Contact Section */}
-        <ContactSection siteSettings={siteSettings} />
+
       </main>
       {/* Footer */}
       <footer className="w-full py-20 mt-20 bg-[#f1f1ee] dark:bg-[#1a1a19] flex flex-col items-center justify-center gap-12 text-center font-plus-jakarta transition-colors border-t border-surface-variant/10">
@@ -227,7 +217,6 @@ export default async function HomePage({
             <nav className="flex flex-col gap-2 text-sm font-bold">
               <a className="text-on-surface-variant hover:text-primary transition-colors" href="/">Tienda</a>
               <a className="text-on-surface-variant hover:text-primary transition-colors" href="/catalog">Catálogo</a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors" href="#nosotros">Nosotros</a>
             </nav>
           </div>
 

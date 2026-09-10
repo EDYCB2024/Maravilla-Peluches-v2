@@ -32,22 +32,22 @@ export default function ProductCard({ product, dollarRate = 0 }: ProductCardProp
 
   return (
     <>
-      <div 
+      <div
         onClick={() => setIsModalOpen(true)}
-        className={`group relative flex flex-col bg-surface-container-lowest rounded-[2rem] p-5 shadow-[0_12px_40px_rgba(146,63,95,0.08)] transition-all duration-300 cursor-pointer ${product.is_active === false ? 'opacity-80' : 'hover:scale-[1.02]'}`}
+        className={`group relative flex flex-col bg-surface-container-lowest rounded-[2rem] p-5 shadow-[0_12px_40px_rgba(146,63,95,0.06)] border border-black/[0.03] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer ${product.is_active === false ? 'opacity-80' : 'hover:-translate-y-2 hover:shadow-[0_22px_50px_rgba(146,63,95,0.13)]'}`}
       >
         <div className="relative w-full aspect-[4/5] overflow-hidden rounded-3xl mb-6 bg-surface-container flex items-center justify-center">
           {!isFallback ? (
-            <img 
-              className={`w-full h-full object-cover rounded-3xl transition-transform duration-500 ${product.is_active === false ? 'grayscale' : 'group-hover:scale-105'}`} 
-              src={imgSrc} 
+            <img
+              className={`w-full h-full object-cover rounded-3xl transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${product.is_active === false ? 'grayscale' : 'group-hover:scale-105'}`}
+              src={imgSrc}
               alt={product.name}
               onError={() => setIsFallback(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-[#f3f3f1] p-10">
-              <img 
-                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='%23923f5f' opacity='0.3'%3E%3Cpath d='M48 20h-8v-4c0-4.4-3.6-8-8-8s-8 3.6-8 8v4h-8c-2.2 0-4 1.8-4 4v32c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4V24c0-2.2-1.8-4-4-4zM28 16c0-2.2 1.8-4 4-4s4 1.8 4 4v4H28v-4zm20 40H16V24h32v32z'/%3E%3Cpath d='M36 32h-8c-1.1 0-2 .9-2 2s.9 2 2 2h8c1.1 0 2-.9 2-2s-.9-2-2-2z'/%3E%3C/svg%3E" 
+              <img
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='%23923f5f' opacity='0.3'%3E%3Cpath d='M48 20h-8v-4c0-4.4-3.6-8-8-8s-8 3.6-8 8v4h-8c-2.2 0-4 1.8-4 4v32c0 2.2 1.8 4 4 4h32c2.2 0 4-1.8 4-4V24c0-2.2-1.8-4-4-4zM28 16c0-2.2 1.8-4 4-4s4 1.8 4 4v4H28v-4zm20 40H16V24h32v32z'/%3E%3Cpath d='M36 32h-8c-1.1 0-2 .9-2 2s.9 2 2 2h8c1.1 0 2-.9 2-2s-.9-2-2-2z'/%3E%3C/svg%3E"
                 className="w-2/3 h-2/3 object-contain"
                 alt="No image"
               />
@@ -70,11 +70,11 @@ export default function ProductCard({ product, dollarRate = 0 }: ProductCardProp
         </div>
 
         <div className="flex flex-col flex-grow">
-          <h3 className={`text-xl font-bold mb-1 ${product.is_active === false ? 'text-on-surface/60' : 'text-on-surface'}`}>{product.name}</h3>
+          <h3 className={`text-xl font-bold mb-1 transition-colors duration-300 group-hover:text-primary ${product.is_active === false ? 'text-on-surface/60' : 'text-on-surface'}`}>{product.name}</h3>
           <p className="text-on-surface-variant text-sm mb-4 line-clamp-2">{product.description}</p>
           <div className="mt-auto flex items-center justify-between">
             <div className="flex flex-col">
-              <span className={`text-2xl font-extrabold ${product.is_active === false ? 'text-on-surface/40' : 'text-primary'}`}>
+              <span className={`text-2xl font-extrabold tracking-tight ${product.is_active === false ? 'text-on-surface/40' : 'text-primary'}`}>
                 ${product.price.toFixed(2)}
               </span>
               <div className="flex flex-col mt-0.5">
@@ -86,30 +86,36 @@ export default function ProductCard({ product, dollarRate = 0 }: ProductCardProp
               </div>
             </div>
             {product.is_active !== false ? (
-              <button 
+              <button
                 onClick={handleAddToCart}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 group/cart relative overflow-hidden shadow-sm ${
-                  isAdding ? 'bg-green-500 text-white' : 'bg-surface-container-low text-primary hover:bg-primary hover:text-on-primary'
-                }`}
-                title="Añadir al carrito"
+                disabled={isAdding}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-md hover:scale-110 active:scale-95 ${isAdding
+                    ? "bg-emerald-600 text-white scale-110"
+                    : "bg-primary text-on-primary hover:bg-primary/90 hover:shadow-primary/30"
+                  }`}
+                aria-label="Agregar al carrito"
               >
-                <span className={`material-symbols-outlined relative z-10 transition-all duration-300 ${isAdding ? 'scale-110' : 'group-active/cart:scale-125'}`}>
-                  {isAdding ? 'check' : 'shopping_cart'}
+                <span className="material-symbols-outlined text-2xl transition-transform duration-200">
+                  {isAdding ? "check" : "add_shopping_cart"}
                 </span>
               </button>
             ) : (
-              <div className="text-[10px] font-bold text-on-surface-variant italic bg-surface-container-low px-3 py-1 rounded-full">
-                No disponible
-              </div>
+              <button
+                disabled
+                className="w-12 h-12 rounded-full flex items-center justify-center bg-surface-container text-on-surface-variant/40 cursor-not-allowed"
+                aria-label="Producto agotado"
+              >
+                <span className="material-symbols-outlined text-2xl">block</span>
+              </button>
             )}
           </div>
         </div>
       </div>
 
-      <ProductModal 
-        product={product} 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <ProductModal
+        product={product}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         dollarRate={dollarRate}
       />
     </>

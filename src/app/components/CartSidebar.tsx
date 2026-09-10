@@ -114,7 +114,7 @@ export default function CartSidebar({ dollarRate = 0 }: { dollarRate?: number })
                 <p className="text-[10px] text-on-surface-variant text-center leading-relaxed">
                   Impuestos y gastos de envío calculados al finalizar la compra.
                 </p>
-                <button className="w-full py-5 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-full font-black text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                <button className="w-full py-5 bg-gradient-to-r from-primary via-[#a84d70] to-primary-container text-on-primary rounded-full font-black text-lg shadow-[0_12px_28px_rgba(146,63,95,0.25)] hover:shadow-[0_18px_36px_rgba(146,63,95,0.35)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center justify-center gap-3">
                   <span className="material-symbols-outlined">payments</span>
                   Finalizar Compra
                 </button>

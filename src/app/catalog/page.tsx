@@ -81,22 +81,21 @@ export default async function CatalogPage({
     <div className="bg-surface text-on-surface min-h-screen flex flex-col">
       <CartSidebar dollarRate={euroRate} />
       {/* TopNavBar */}
-      <nav className="fixed top-0 w-full z-50 bg-[#f7f6f3]/70 dark:bg-[#1a1a19]/70 backdrop-blur-md shadow-[0_12px_40px_rgba(146,63,95,0.08)] h-20 flex justify-between items-center px-8 font-plus-jakarta tracking-tight">
+      <nav className="fixed top-0 w-full z-50 bg-[#f7f6f3]/80 dark:bg-[#1a1a19]/80 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_10px_30px_rgba(146,63,95,0.05)] h-20 flex justify-between items-center px-6 md:px-12 font-plus-jakarta tracking-tight transition-all duration-300">
         <a
-          className="text-2xl font-bold text-[#2e2f2d] dark:text-[#f7f6f3] hover:scale-105 transition-transform duration-200 cursor-pointer"
+          className="text-2xl font-black text-[#2e2f2d] dark:text-[#f7f6f3] hover:text-primary transition-all duration-300 cursor-pointer"
           href="/"
         >
           Maravilla Peluches
         </a>
-        <div className="hidden md:flex items-center gap-8">
-          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="/">Tienda</a>
-          <a className="text-[#923f5f] dark:text-[#f48fb1] border-b-2 border-[#923f5f] pb-1 font-semibold" href="/catalog">Catálogo</a>
-          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="/#nosotros">Nosotros</a>
+        <div className="hidden md:flex items-center gap-8 text-sm font-semibold">
+          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-primary hover:-translate-y-0.5 transition-all duration-300" href="/">Tienda</a>
+          <a className="text-[#923f5f] dark:text-[#f48fb1] border-b-2 border-[#923f5f] pb-1 transition-all duration-300" href="/catalog">Catálogo</a>
         </div>
         <div className="flex items-center gap-6">
           {euroRate > 0 && (
-            <div className="hidden sm:flex flex-col items-end border-r border-on-surface/10 pr-6 mr-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">Euro BCV</span>
+            <div className="hidden sm:flex flex-col items-end border-r border-on-surface/10 pr-6 mr-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">Tasa Oficial Euro</span>
               <span className="text-sm font-black text-primary">Bs. {euroRate.toFixed(2)}</span>
             </div>
           )}
@@ -106,15 +105,13 @@ export default async function CatalogPage({
 
       <main className="pt-28 flex-grow">
         {/* Header Catálogo */}
-        <section className="px-8 pb-8 text-center max-w-4xl mx-auto">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-widest mb-3">
-            Nuestros Productos
-          </span>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-on-surface tracking-tight mb-3">
-            Catálogo Completo
+        <section className="px-6 md:px-12 pb-8 text-center max-w-4xl mx-auto">
+
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-on-surface tracking-tight mb-3">
+            Catálogo <span className="font-serif italic font-normal text-primary">Exclusivo</span>
           </h1>
-          <p className="text-on-surface-variant text-base md:text-lg max-w-xl mx-auto">
-            Explora todos nuestros amigos de peluche disponibles. Filtra por categoría o busca tu favorito.
+          <p className="text-on-surface-variant text-base sm:text-lg max-w-xl mx-auto leading-relaxed font-normal">
+            Explora todos nuestros amigos de peluche disponibles. Filtra por categoría o busca tu favorito para acompañar tus mejores momentos.
           </p>
         </section>
 
@@ -152,7 +149,6 @@ export default async function CatalogPage({
             <nav className="flex flex-col gap-2 text-sm font-bold">
               <a className="text-on-surface-variant hover:text-primary transition-colors" href="/">Tienda</a>
               <a className="text-on-surface-variant hover:text-primary transition-colors" href="/catalog">Catálogo</a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors" href="/#nosotros">Nosotros</a>
             </nav>
           </div>
 
