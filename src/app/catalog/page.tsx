@@ -103,7 +103,7 @@ export default async function CatalogPage({
         </div>
       </nav>
 
-      <main className="pt-28 flex-grow">
+      <main className="pt-20 flex-grow">
         {/* Header Catálogo */}
         <section className="px-6 md:px-12 pb-8 text-center max-w-4xl mx-auto">
 
@@ -134,50 +134,50 @@ export default async function CatalogPage({
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full py-16 mt-16 bg-[#f1f1ee] dark:bg-[#1a1a19] flex flex-col items-center justify-center gap-12 text-center font-plus-jakarta transition-colors border-t border-surface-variant/10">
+      {/* Dark Footer */}
+      <footer className="w-full py-16 mt-16 bg-[#1c1b18] text-[#f7f6f3] flex flex-col items-center justify-center gap-12 text-center font-plus-jakarta border-t border-white/10">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 w-full max-w-7xl px-8">
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-4">
-            <a className="text-2xl font-black text-on-surface hover:text-primary transition-colors" href="/">Maravilla Peluches</a>
-            <p className="text-sm text-on-surface-variant leading-relaxed">
+            <a className="text-2xl font-black text-white hover:text-[#fe97b9] transition-colors" href="/">Maravilla Peluches</a>
+            <p className="text-sm text-white/70 leading-relaxed font-normal">
               Creamos amigos inseparables hechos con amor y los materiales más suaves para acompañarte siempre.
             </p>
           </div>
 
           <div className="flex flex-col items-center gap-4">
-            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Explorar</h4>
+            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#fe97b9]">Explorar</h4>
             <nav className="flex flex-col gap-2 text-sm font-bold">
-              <a className="text-on-surface-variant hover:text-primary transition-colors" href="/">Tienda</a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors" href="/catalog">Catálogo</a>
+              <a className="text-white/80 hover:text-[#fe97b9] transition-colors" href="/">Tienda</a>
+              <a className="text-white/80 hover:text-[#fe97b9] transition-colors" href="/catalog">Catálogo</a>
             </nav>
           </div>
 
           <div className="flex flex-col items-center gap-4">
-            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Ubícanos</h4>
+            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#fe97b9]">Ubícanos</h4>
             <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-center gap-2 text-on-surface-variant text-sm font-bold">
-                <span className="material-symbols-outlined text-lg">location_on</span>
+              <div className="flex items-center justify-center gap-2 text-white/80 text-sm font-bold">
+                <span className="material-symbols-outlined text-lg text-[#fe97b9]">location_on</span>
                 <p className="max-w-[200px]">{siteSettings.address}</p>
               </div>
-              <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">{siteSettings.working_hours}</p>
+              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{siteSettings.working_hours}</p>
             </div>
           </div>
 
           <div className="flex flex-col items-center lg:items-end text-center lg:text-right gap-4">
-            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Contáctenos</h4>
+            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#fe97b9]">Contáctenos</h4>
             <div className="flex flex-col gap-3">
               <a
                 href={`https://instagram.com/${siteSettings.instagram.replace('@', '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center lg:justify-end gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm font-bold"
+                className="flex items-center justify-center lg:justify-end gap-2 text-white/80 hover:text-[#fe97b9] transition-colors text-sm font-bold"
               >
                 {siteSettings.instagram}
                 <span className="material-symbols-outlined text-lg">photo_camera</span>
               </a>
               <a
                 href={`mailto:${siteSettings.email}`}
-                className="flex items-center justify-center lg:justify-end gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm font-bold"
+                className="flex items-center justify-center lg:justify-end gap-2 text-white/80 hover:text-[#fe97b9] transition-colors text-sm font-bold"
               >
                 {siteSettings.email}
                 <span className="material-symbols-outlined text-lg">mail</span>
@@ -186,8 +186,8 @@ export default async function CatalogPage({
           </div>
         </div>
 
-        <div className="w-full max-w-6xl px-8 border-t border-surface-variant/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-on-surface-variant/40 text-[10px] font-medium">
+        <div className="w-full max-w-6xl px-8 border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-white/40 text-[10px] font-medium">
             © 2024 Maravilla Peluches. Hecho con amor en Venezuela.
           </div>
         </div>
