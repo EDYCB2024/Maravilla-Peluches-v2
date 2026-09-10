@@ -7,6 +7,7 @@ import CartStatus from "./components/CartStatus";
 import CartSidebar from "./components/CartSidebar";
 import WhatsAppButton from "./components/WhatsAppButton";
 import ScrollToTopButton from "./components/ScrollToTopButton";
+import ContactSection from "./components/ContactSection";
 
 export const dynamic = "force-dynamic";
 
@@ -94,9 +95,8 @@ export default async function HomePage({
         </a>
         <div className="hidden md:flex items-center gap-8">
           <a className="text-[#923f5f] dark:text-[#f48fb1] border-b-2 border-[#923f5f] pb-1 hover:scale-105 transition-transform duration-200" href="/">Tienda</a>
-          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Novedades</a>
-          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Colecciones</a>
-          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#">Nosotros</a>
+          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="/catalog">Catálogo</a>
+          <a className="text-[#5b5c5a] dark:text-[#a1a19f] hover:text-[#2e2f2d] hover:scale-105 transition-transform duration-200" href="#nosotros">Nosotros</a>
         </div>
         <div className="flex items-center gap-6">
           {euroRate > 0 && (
@@ -124,12 +124,18 @@ export default async function HomePage({
                 Hecho a mano con los materiales más suaves del mundo. Cada amigo de Maravilla Peluches está diseñado para ser abrazado y durar toda una vida de momentos acogedores.
               </p>
               <div className="pt-4 flex gap-4">
-                <button className="px-8 py-4 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold shadow-lg hover:scale-105 active:scale-95 transition-all">
-                  Explorar Novedades
-                </button>
-                <button className="px-8 py-4 rounded-full text-primary font-bold border-2 border-primary/10 hover:bg-primary/5 transition-all">
+                <a
+                  href="/catalog"
+                  className="px-8 py-4 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold shadow-lg hover:scale-105 active:scale-95 transition-all text-center"
+                >
+                  Explorar Catálogo
+                </a>
+                <a
+                  href="#nosotros"
+                  className="px-8 py-4 rounded-full text-primary font-bold border-2 border-primary/10 hover:bg-primary/5 transition-all text-center"
+                >
                   Nuestra Historia
-                </button>
+                </a>
               </div>
             </div>
             <div className="flex-1 relative">
@@ -145,33 +151,64 @@ export default async function HomePage({
           </div>
         </section>
 
-        {/* Filter & Catalog Section */}
-        <section id="catalog" className="px-8 py-12 max-w-7xl mx-auto scroll-mt-24">
-          {/* Client Filter Component */}
-          <CategoryFilter categories={categories} />
-
-          {/* Product Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
-            {filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} dollarRate={euroRate} />
-              ))
-            ) : (
-              <div className="col-span-full py-20 flex flex-col items-center gap-4">
-                <span className="material-symbols-outlined text-6xl text-on-surface-variant opacity-20">sentiment_dissatisfied</span>
-                <p className="text-xl font-bold text-on-surface-variant">No encontramos productos en esta categoría.</p>
+        {/* Brand Features & CTA Section */}
+        <section className="px-8 py-20 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+            <div className="p-8 rounded-[2rem] bg-surface-container-low/60 border border-surface-container flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-3xl font-black">favorite</span>
               </div>
-            )}
+              <h3 className="text-xl font-bold text-on-surface">Materiales Extra Suaves</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                Seleccionamos telas hipoalergénicas y textiles de la más alta calidad para garantizar caricias inolvidables.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-[2rem] bg-surface-container-low/60 border border-surface-container flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                <span className="material-symbols-outlined text-3xl font-black">local_shipping</span>
+              </div>
+              <h3 className="text-xl font-bold text-on-surface">Envíos a Nivel Nacional</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                Llevamos la ternura directamente a la puerta de tu hogar o a la persona que deseas sorprender.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-[2rem] bg-surface-container-low/60 border border-surface-container flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-3xl font-black">card_giftcard</span>
+              </div>
+              <h3 className="text-xl font-bold text-on-surface">Empaque Especial</h3>
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                Cada pedido incluye nuestro empaque preparado listo para regalar en ocasiones especiales.
+              </p>
+            </div>
           </div>
 
-          {/* View More CTA */}
-          <div className="mt-20 text-center">
-            <button className="px-12 py-5 rounded-full bg-surface-container-low text-on-surface font-bold text-lg hover:bg-surface-container-high transition-all">
-              Cargar más Amigos
-            </button>
+          {/* Banner CTA Catálogo */}
+          <div className="p-12 md:p-16 rounded-[2.5rem] bg-gradient-to-r from-primary to-primary-container text-on-primary flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl relative overflow-hidden">
+            <div className="space-y-4 max-w-xl text-center md:text-left z-10">
+              <span className="text-xs font-black uppercase tracking-widest bg-white/20 px-4 py-1.5 rounded-full inline-block">
+                Catálogo Disponible
+              </span>
+              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+                Descubre todos nuestros modelos y tamaños en el Catálogo
+              </h2>
+              <p className="text-on-primary/90 text-sm md:text-base leading-relaxed">
+                Encuentra el compañero perfecto o el regalo ideal navegando en nuestra colección completa.
+              </p>
+            </div>
+            <a
+              href="/catalog"
+              className="px-10 py-5 rounded-full bg-white text-primary font-extrabold shadow-lg hover:scale-105 active:scale-95 transition-all text-center whitespace-nowrap z-10"
+            >
+              Ver Todo el Catálogo
+            </a>
           </div>
         </section>
 
+        {/* About & Contact Section */}
+        <ContactSection siteSettings={siteSettings} />
       </main>
       {/* Footer */}
       <footer className="w-full py-20 mt-20 bg-[#f1f1ee] dark:bg-[#1a1a19] flex flex-col items-center justify-center gap-12 text-center font-plus-jakarta transition-colors border-t border-surface-variant/10">
@@ -189,9 +226,8 @@ export default async function HomePage({
             <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Explorar</h4>
             <nav className="flex flex-col gap-2 text-sm font-bold">
               <a className="text-on-surface-variant hover:text-primary transition-colors" href="/">Tienda</a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors" href="#">Novedades</a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors" href="#">Colecciones</a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors" href="#">Nosotros</a>
+              <a className="text-on-surface-variant hover:text-primary transition-colors" href="/catalog">Catálogo</a>
+              <a className="text-on-surface-variant hover:text-primary transition-colors" href="#nosotros">Nosotros</a>
             </nav>
           </div>
 
