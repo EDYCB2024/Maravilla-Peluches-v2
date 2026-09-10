@@ -188,6 +188,14 @@ export default function AdminPage() {
   const [metrics, setMetrics] = useState({ totalProducts: 0, activeOrders: 0, lowStock: 0 });
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkCategoryId, setBulkCategoryId] = useState("");
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [bulkDefaultPrice, setBulkDefaultPrice] = useState(0);
+  const [bulkDefaultStock, setBulkDefaultStock] = useState(1);
+  const [bulkDefaultSize, setBulkDefaultSize] = useState("");
+  const [isUploadingBulk, setIsUploadingBulk] = useState(false);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState<{ current: number; total: number; successCount: number } | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [isEditSupplierModalOpen, setIsEditSupplierModalOpen] = useState(false);
@@ -512,6 +520,117 @@ export default function AdminPage() {
       alert(`Error al añadir el producto: ${errorMsg}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBulkUpload = async () => {
+    if (!bulkCategoryId) {
+      alert("Por favor selecciona una categoría.");
+      return;
+    }
+    if (bulkFiles.length === 0) {
+      alert("Por favor selecciona al menos una foto.");
+      return;
+    }
+
+    const selectedCat = categories.find(c => c.id === bulkCategoryId);
+    const categoryName = selectedCat ? selectedCat.name : "Producto";
+
+    setIsUploadingBulk(true);
+    setBulkUploadProgress({ current: 0, total: bulkFiles.length, successCount: 0 });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < bulkFiles.length; i++) {
+      const file = bulkFiles[i];
+      setBulkUploadProgress({ current: i + 1, total: bulkFiles.length, successCount });
+
+      try {
+        const baseSlug = categoryName
+          .toLowerCase()
+          .trim()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\w\s-]/g, "")
+          .replace(/[\s_-]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+        
+        const slug = `${baseSlug}-${Date.now().toString(36)}-${i}-${Math.random().toString(36).substring(2, 6)}`;
+
+        const insertData = {
+          name: categoryName,
+          price: bulkDefaultPrice || 0,
+          size: bulkDefaultSize || "",
+          slug: slug,
+          category_id: bulkCategoryId,
+          description: "",
+          is_active: true,
+          is_visible: true,
+          is_hero: false
+        };
+
+        const { data, error } = await supabase
+          .from("products")
+          .insert([insertData])
+          .select();
+
+        if (error || !data || data.length === 0) {
+          console.error("Error al insertar producto masivo:", error);
+          failCount++;
+          continue;
+        }
+
+        const createdProduct = data[0];
+
+        const { error: invError } = await supabase.from("inventory").insert([
+          { product_id: createdProduct.id, quantity: bulkDefaultStock ?? 1 }
+        ]);
+        if (invError) {
+          console.error("Error en inventario para carga masiva:", invError);
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("productId", createdProduct.id);
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          successCount++;
+        } else {
+          console.error("Error subiendo foto masiva para ID:", createdProduct.id);
+          failCount++;
+        }
+      } catch (err) {
+        console.error("Error en proceso de carga masiva:", err);
+        failCount++;
+      }
+    }
+
+    setIsUploadingBulk(false);
+    setBulkUploadProgress(null);
+    setIsBulkModalOpen(false);
+    setBulkFiles([]);
+    setBulkCategoryId("");
+    setBulkDefaultPrice(0);
+    setBulkDefaultStock(1);
+    setBulkDefaultSize("");
+
+    const { data: updatedProducts } = await supabase
+      .from("products")
+      .select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)");
+    if (updatedProducts) setInventory(updatedProducts as any);
+
+    setRefreshKey(Date.now());
+
+    if (failCount === 0) {
+      alert(`¡Carga masiva exitosa! Se crearon ${successCount} productos "${categoryName}".`);
+    } else {
+      alert(`Carga masiva finalizada: ${successCount} productos creados exitosamente, ${failCount} fallidos.`);
     }
   };
 
@@ -1470,6 +1589,218 @@ export default function AdminPage() {
                     {loading ? "Guardando..." : "Guardar"}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Carga Masiva */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-container-lowest rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-300 border border-primary/10 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                if (isUploadingBulk) return;
+                setIsBulkModalOpen(false);
+                setBulkFiles([]);
+              }}
+              disabled={isUploadingBulk}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-all disabled:opacity-30"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <h3 className="text-2xl font-black text-on-surface mb-2 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary text-3xl">cloud_upload</span>
+              Carga Masiva de Fotos
+            </h3>
+            <p className="text-xs text-on-surface-variant mb-6">
+              Selecciona una categoría y sube múltiples fotos a la vez. Cada foto creará un producto individual con el nombre asignado a la categoría.
+            </p>
+
+            <div className="space-y-6">
+              {/* Categoría Seleccionable */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                  Categoría del Lote <span className="text-error font-black text-xs">*</span>
+                </label>
+                <select
+                  disabled={isUploadingBulk}
+                  className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3.5 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
+                  value={bulkCategoryId}
+                  onChange={(e) => setBulkCategoryId(e.target.value)}
+                >
+                  <option value="">-- Selecciona una Categoría --</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                {bulkCategoryId && (
+                  <p className="text-[11px] text-primary font-bold mt-1.5 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">info</span>
+                    Todos los productos creados se llamarán: <span className="underline italic">{categories.find(c => c.id === bulkCategoryId)?.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Opciones Adicionales Opcionales */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-surface-container-low/30 p-4 rounded-2xl border border-surface-container/50">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Precio Base ($)</label>
+                  <input
+                    type="number"
+                    disabled={isUploadingBulk}
+                    className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-primary outline-none text-xs font-bold"
+                    placeholder="0.00"
+                    value={bulkDefaultPrice === 0 ? "" : bulkDefaultPrice}
+                    onChange={(e) => setBulkDefaultPrice(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Stock Inicial</label>
+                  <input
+                    type="number"
+                    disabled={isUploadingBulk}
+                    className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-primary outline-none text-xs font-bold"
+                    placeholder="1"
+                    value={bulkDefaultStock === 0 ? "" : bulkDefaultStock}
+                    onChange={(e) => setBulkDefaultStock(e.target.value === "" ? 0 : parseInt(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Tamaño</label>
+                  <input
+                    type="text"
+                    disabled={isUploadingBulk}
+                    className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-primary outline-none text-xs font-bold"
+                    placeholder="Ej. 30cm"
+                    value={bulkDefaultSize}
+                    onChange={(e) => setBulkDefaultSize(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Selector de Fotos */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                  Seleccionar Fotos de Productos <span className="text-error font-black text-xs">*</span>
+                </label>
+                <div className="relative group w-full min-h-[140px]">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    disabled={isUploadingBulk}
+                    className="hidden"
+                    id="bulk-photos-input"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const newFiles = Array.from(e.target.files);
+                        setBulkFiles(prev => [...prev, ...newFiles]);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="bulk-photos-input"
+                    className="flex flex-col items-center justify-center w-full p-6 bg-surface-container-low rounded-[2rem] border-2 border-dashed border-primary/30 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer text-center"
+                  >
+                    <span className="material-symbols-outlined text-4xl text-primary mb-2">add_photo_alternate</span>
+                    <span className="text-xs font-bold text-on-surface mb-1">Haz clic o arrastra varias fotos aquí</span>
+                    <span className="text-[10px] text-on-surface-variant">Formatos soportados: JPG, PNG, WEBP (puedes seleccionar varias fotos simultáneamente)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Vista previa de archivos seleccionados */}
+              {bulkFiles.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-black text-primary uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm">collections</span>
+                      {bulkFiles.length} {bulkFiles.length === 1 ? "foto seleccionada" : "fotos seleccionadas"}
+                    </span>
+                    {!isUploadingBulk && (
+                      <button
+                        onClick={() => setBulkFiles([])}
+                        className="text-[10px] font-bold text-error hover:underline flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-xs">delete</span> Vaciar selección
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {bulkFiles.map((file, idx) => (
+                      <div key={idx} className="relative group rounded-2xl overflow-hidden bg-surface-container border border-surface-container-high aspect-square flex items-center justify-center">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                          <button
+                            disabled={isUploadingBulk}
+                            onClick={() => setBulkFiles(bulkFiles.filter((_, i) => i !== idx))}
+                            className="self-end w-6 h-6 rounded-full bg-error text-white flex items-center justify-center shadow-md hover:scale-110 transition-all"
+                            title="Quitar esta foto"
+                          >
+                            <span className="material-symbols-outlined text-xs">close</span>
+                          </button>
+                          <span className="text-[9px] font-mono text-white truncate w-full px-1 bg-black/60 rounded">
+                            {file.name}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Progreso de Carga Masiva */}
+              {isUploadingBulk && bulkUploadProgress && (
+                <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 space-y-2 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center text-xs font-bold text-primary">
+                    <span className="flex items-center gap-2">
+                      <span className="material-symbols-outlined animate-spin text-sm">sync</span>
+                      Subiendo productos ({bulkUploadProgress.current} de {bulkUploadProgress.total})...
+                    </span>
+                    <span>{Math.round((bulkUploadProgress.current / bulkUploadProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-primary/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all duration-300 rounded-full"
+                      style={{ width: `${(bulkUploadProgress.current / bulkUploadProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Botones de Acción */}
+              <div className="flex gap-4 pt-2">
+                <button
+                  disabled={isUploadingBulk}
+                  onClick={() => {
+                    setIsBulkModalOpen(false);
+                    setBulkFiles([]);
+                  }}
+                  className="flex-1 py-3.5 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all text-xs uppercase tracking-widest disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={isUploadingBulk || !bulkCategoryId || bulkFiles.length === 0}
+                  onClick={handleBulkUpload}
+                  className="flex-1 py-3.5 bg-secondary text-on-secondary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                >
+                  {isUploadingBulk ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin text-sm">sync</span>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">cloud_upload</span>
+                      Cargar {bulkFiles.length > 0 ? `${bulkFiles.length} Productos` : "Productos"}
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -3032,18 +3363,27 @@ export default function AdminPage() {
             </div>
 
             <div className="p-8">
-              <div className="flex justify-between items-center mb-8">
+              <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
                 <div>
                   <h3 className="text-xl font-black text-on-surface">Catálogo de Productos</h3>
                   <p className="text-xs text-on-surface-variant">Gestiona tus productos disponibles.</p>
                 </div>
-                <button
-                  onClick={() => setIsAddModalOpen(true)}
-                  className="px-8 py-3 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined">add</span>
-                  Nuevo Producto
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsBulkModalOpen(true)}
+                    className="px-6 py-3 bg-secondary text-on-secondary rounded-full font-bold shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-2 text-xs uppercase tracking-wider"
+                  >
+                    <span className="material-symbols-outlined text-lg">cloud_upload</span>
+                    Carga Masiva (Fotos)
+                  </button>
+                  <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="px-8 py-3 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2 text-xs uppercase tracking-wider"
+                  >
+                    <span className="material-symbols-outlined">add</span>
+                    Nuevo Producto
+                  </button>
+                </div>
               </div>
               {loading ? (
                 <div className="py-20 text-center text-on-surface-variant italic">Cargando catálogo...</div>
