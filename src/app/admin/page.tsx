@@ -6,6 +6,7 @@ import ScrollToTopButton from "../components/ScrollToTopButton";
 
 interface InventoryItem {
   id: string;
+  mpid?: string;
   name: string;
   price: number;
   description?: string;
@@ -50,6 +51,20 @@ interface Category {
   name: string;
   position?: number;
 }
+
+const formatSize = (val?: string): string => {
+  if (!val) return "";
+  const trimmed = val.trim();
+  if (!trimmed) return "";
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    return `${trimmed} cm`;
+  }
+  if (trimmed.toLowerCase().endsWith("cm")) {
+    const numPart = trimmed.slice(0, -2).trim();
+    return numPart ? `${numPart} cm` : trimmed;
+  }
+  return `${trimmed} cm`;
+};
 
 const mockOrders: Order[] = [
   {
@@ -108,7 +123,7 @@ export default function AdminPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  
+
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -119,12 +134,12 @@ export default function AdminPage() {
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const getFriendlyMessage = (msg: string): string => {
     const lower = msg.toLowerCase();
-    
+
     if (lower.includes("products_slug_key") || (lower.includes("duplicate key") && lower.includes("slug"))) {
       return "Ya existe un producto con este nombre. Intenta usando un nombre diferente.";
     }
@@ -145,14 +160,14 @@ export default function AdminPage() {
     if (lower.includes("jwt expired") || lower.includes("invalid jwt")) {
       return "Tu sesión ha expirado. Por favor, cierra sesión e ingresa nuevamente.";
     }
-    
+
     return msg;
   };
 
   // Custom shadowed alert function that displays a toast notification with friendly messages
   const alert = (message: string) => {
     const isError = message.toLowerCase().includes("error") || message.toLowerCase().includes("falló") || message.toLowerCase().includes("inexistente") || message.toLowerCase().includes("no existe") || message.toLowerCase().includes("denegado") || message.toLowerCase().includes("incorrecto");
-    
+
     const friendlyMessage = getFriendlyMessage(message);
     setToast({ message: friendlyMessage, type: isError ? "error" : "success" });
   };
@@ -204,6 +219,7 @@ export default function AdminPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState({ name: "", price: 0, category_id: "", description: "", quantity: 0, size: "" });
   const [newSupplier, setNewSupplier] = useState({ name: "", location: "", phone: "", products: "" });
   const [newProductImage, setNewProductImage] = useState<File | null>(null);
@@ -279,7 +295,7 @@ export default function AdminPage() {
         const [productsRes, categoriesRes, suppliersRes, settingsRes, ordersRes, exchangeRes, euroRes] = await Promise.all([
           supabase
             .from("products")
-            .select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
+            .select("id, name, mpid, price, size, category_id, description, is_active, is_visible, is_hero, created_at, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)"),
           supabase.from("categories").select("*").order("position", { ascending: true }),
           supabase.from("suppliers").select("*"),
           supabase.from("settings").select("*").single(),
@@ -292,11 +308,15 @@ export default function AdminPage() {
         let lowStockCount = 0;
 
         if (productsRes.data) {
-          const items = (productsRes.data as unknown as InventoryItem[])
-            .sort((a, b) => a.name.localeCompare(b.name));
-          setInventory(items);
-          totalProductsCount = items.length;
-          lowStockCount = items.filter(item => {
+          const sortedRaw = (productsRes.data as unknown as InventoryItem[])
+            .sort((a: any, b: any) => (a.created_at || '').localeCompare(b.created_at || ''));
+          const itemsWithMpid = sortedRaw.map((item, idx) => ({
+            ...item,
+            mpid: item.mpid || `MP-${String(idx + 1).padStart(4, '0')}`
+          })).sort((a, b) => a.name.localeCompare(b.name));
+          setInventory(itemsWithMpid);
+          totalProductsCount = itemsWithMpid.length;
+          lowStockCount = itemsWithMpid.filter(item => {
             const inv = Array.isArray(item.inventory) ? item.inventory[0] : item.inventory;
             const qty = inv?.quantity ?? 0;
             return qty > 0 && qty <= 5;
@@ -444,13 +464,17 @@ export default function AdminPage() {
         .replace(/[^\w\s-]/g, "")
         .replace(/[\s_-]+/g, "-")
         .replace(/^-+|-+$/g, "");
-      
+
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
+
+      const nextNumber = inventory.length + 1;
+      const nextMpid = `MP-${String(nextNumber).padStart(4, '0')}`;
 
       const insertData = {
         name: newProduct.name,
+        mpid: nextMpid,
         price: newProduct.price,
-        size: newProduct.size,
+        size: formatSize(newProduct.size),
         slug: slug,
         category_id: newProduct.category_id || null,
         description: newProduct.description || "",
@@ -507,8 +531,16 @@ export default function AdminPage() {
       // Refetch products
       const { data: updatedProducts } = await supabase
         .from("products")
-        .select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)");
-      if (updatedProducts) setInventory(updatedProducts as any);
+        .select("id, name, mpid, price, size, category_id, description, is_active, is_visible, is_hero, created_at, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)");
+      if (updatedProducts) {
+        const sortedRaw = (updatedProducts as unknown as InventoryItem[])
+          .sort((a: any, b: any) => (a.created_at || '').localeCompare(b.created_at || ''));
+        const itemsWithMpid = sortedRaw.map((item, idx) => ({
+          ...item,
+          mpid: item.mpid || `MP-${String(idx + 1).padStart(4, '0')}`
+        })).sort((a, b) => a.name.localeCompare(b.name));
+        setInventory(itemsWithMpid);
+      }
       alert("¡Producto añadido con éxito!");
     } catch (error: any) {
       console.error("Detalles del error (completo):", error);
@@ -555,13 +587,13 @@ export default function AdminPage() {
           .replace(/[^\w\s-]/g, "")
           .replace(/[\s_-]+/g, "-")
           .replace(/^-+|-+$/g, "");
-        
+
         const slug = `${baseSlug}-${Date.now().toString(36)}-${i}-${Math.random().toString(36).substring(2, 6)}`;
 
         const insertData = {
           name: categoryName,
           price: bulkDefaultPrice || 0,
-          size: bulkDefaultSize || "",
+          size: formatSize(bulkDefaultSize),
           slug: slug,
           category_id: bulkCategoryId,
           description: "",
@@ -622,8 +654,16 @@ export default function AdminPage() {
 
     const { data: updatedProducts } = await supabase
       .from("products")
-      .select("id, name, price, size, category_id, description, is_active, is_visible, is_hero, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)");
-    if (updatedProducts) setInventory(updatedProducts as any);
+      .select("id, name, mpid, price, size, category_id, description, is_active, is_visible, is_hero, created_at, categories(name), inventory(quantity, status), product_images(url, alt_text, is_primary)");
+    if (updatedProducts) {
+      const sortedRaw = (updatedProducts as unknown as InventoryItem[])
+        .sort((a: any, b: any) => (a.created_at || '').localeCompare(b.created_at || ''));
+      const itemsWithMpid = sortedRaw.map((item, idx) => ({
+        ...item,
+        mpid: item.mpid || `MP-${String(idx + 1).padStart(4, '0')}`
+      })).sort((a, b) => a.name.localeCompare(b.name));
+      setInventory(itemsWithMpid);
+    }
 
     setRefreshKey(Date.now());
 
@@ -752,7 +792,7 @@ export default function AdminPage() {
           price: editingProduct.price,
           category_id: editingProduct.category_id,
           description: editingProduct.description,
-          size: editingProduct.size
+          size: formatSize(editingProduct.size)
         })
         .eq("id", editingProduct.id);
 
@@ -919,29 +959,37 @@ export default function AdminPage() {
     );
   };
 
-  const handleMoveCategory = (id: string, direction: "up" | "down") => {
-    const currentIndex = categories.findIndex(c => c.id === id);
-    if (currentIndex === -1) return;
-    
-    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= categories.length) return;
-    
-    // Create a copy of the categories array
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedCategoryId(id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedCategoryId || draggedCategoryId === targetId) return;
+
+    const draggedIndex = categories.findIndex(c => c.id === draggedCategoryId);
+    const targetIndex = categories.findIndex(c => c.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
     const newCategories = [...categories];
-    
-    // Swap the elements
-    const temp = newCategories[currentIndex];
-    newCategories[currentIndex] = newCategories[targetIndex];
-    newCategories[targetIndex] = temp;
-    
-    // Map with new sequential position values
+    const [draggedItem] = newCategories.splice(draggedIndex, 1);
+    newCategories.splice(targetIndex, 0, draggedItem);
+
     const updatedCategories = newCategories.map((cat, idx) => ({
       ...cat,
       position: idx + 1
     }));
-    
+
     setCategories(updatedCategories);
     setHasCategoryChanges(true);
+    setDraggedCategoryId(null);
   };
 
   const handleSaveCategoryOrder = async () => {
@@ -953,16 +1001,16 @@ export default function AdminPage() {
           .update({ position: idx + 1 })
           .eq("id", cat.id);
       });
-      
+
       const results = await Promise.all(updatePromises);
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
         throw new Error("Ocurrió un error al guardar algunas posiciones.");
       }
-      
+
       setHasCategoryChanges(false);
       alert("Orden de categorías guardado con éxito.");
-      
+
       // Revalidate cache
       await fetch('/api/revalidate', { method: 'POST' }).catch(() => null);
     } catch (e: any) {
@@ -1329,21 +1377,21 @@ export default function AdminPage() {
         <form className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.08)] w-full max-w-sm flex flex-col gap-4 border border-surface-variant/20 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
           <div className="flex justify-center mb-2">
-             <div className="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center shadow-[0_8px_20px_rgba(146,63,95,0.15)] z-10">
-               <span className="material-symbols-outlined text-on-primary-container text-3xl">pets</span>
-             </div>
+            <div className="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center shadow-[0_8px_20px_rgba(146,63,95,0.15)] z-10">
+              <span className="material-symbols-outlined text-on-primary-container text-3xl">pets</span>
+            </div>
           </div>
           <h2 className="text-2xl font-black text-center text-on-surface mb-2 z-10">Acceso Admin</h2>
           {loginError && <p className="text-error text-sm text-center font-bold bg-error/10 p-3 rounded-xl z-10">{loginError}</p>}
           <input type="email" placeholder="Correo Electrónico" required className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3.5 focus:ring-2 focus:ring-primary outline-none text-sm z-10" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
-          
+
           <div className="relative w-full z-10">
             <input type={showPassword ? "text" : "password"} placeholder="Contraseña" required className="w-full bg-surface-container-low border-none rounded-2xl pl-4 pr-12 py-3.5 focus:ring-2 focus:ring-primary outline-none text-sm" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center focus:outline-none" tabIndex={-1}>
               <span className="material-symbols-outlined text-[20px]">{showPassword ? "visibility_off" : "visibility"}</span>
             </button>
           </div>
-          
+
           <button onClick={handleLogin} disabled={isLoggingIn} className="w-full py-4 bg-primary text-on-primary rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 mt-4 z-10">
             {isLoggingIn ? "Verificando..." : "Iniciar Sesión"}
           </button>
@@ -1493,7 +1541,7 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-2">
                   <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1 text-center">Gestión de Imagen</p>
-                  <label 
+                  <label
                     htmlFor="new-product-image"
                     className="w-full cursor-pointer bg-secondary/5 text-secondary text-[10px] font-black py-3 rounded-2xl hover:bg-secondary/10 transition-all flex items-center justify-center gap-2 border border-secondary/10"
                   >
@@ -1505,17 +1553,28 @@ export default function AdminPage() {
 
               {/* Columna Derecha: Formulario */}
               <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre <span className="text-error font-black text-xs">*</span></label>
-                  <input
-                    type="text"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
-                    value={newProduct.name}
-                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                    placeholder="Ej. Stitch Galáctico"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Código MPID (Automático)</label>
+                    <input
+                      type="text"
+                      disabled
+                      className="w-full bg-surface-container-high/60 border-none rounded-2xl px-4 py-3 outline-none text-sm font-mono font-bold text-primary opacity-90 cursor-not-allowed"
+                      value={`MP-${String(inventory.length + 1).padStart(4, '0')}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre <span className="text-error font-black text-xs">*</span></label>
+                    <input
+                      type="text"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
+                      value={newProduct.name}
+                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                      placeholder="Ej. Stitch Galáctico"
+                    />
+                  </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Precio ($) <span className="text-error font-black text-xs">*</span></label>
@@ -1542,11 +1601,11 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño (cm)</label>
                     <input
                       type="text"
                       className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                      placeholder="Ej: 30cm"
+                      placeholder="Ej. 25 (se guardará como 25 cm)"
                       value={newProduct.size}
                       onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
                     />
@@ -1563,7 +1622,7 @@ export default function AdminPage() {
                     </select>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Descripción</label>
                   <textarea
@@ -1666,12 +1725,12 @@ export default function AdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Tamaño</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Tamaño (cm)</label>
                   <input
                     type="text"
                     disabled={isUploadingBulk}
                     className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-primary outline-none text-xs font-bold"
-                    placeholder="Ej. 30cm"
+                    placeholder="Ej. 25"
                     value={bulkDefaultSize}
                     onChange={(e) => setBulkDefaultSize(e.target.value)}
                   />
@@ -1743,8 +1802,8 @@ export default function AdminPage() {
                           >
                             <span className="material-symbols-outlined text-xs">close</span>
                           </button>
-                          <span className="text-[9px] font-mono text-white truncate w-full px-1 bg-black/60 rounded">
-                            {file.name}
+                          <span className="text-[9px] font-mono font-bold text-white truncate w-full px-1.5 py-0.5 bg-primary/90 rounded flex items-center justify-between shadow">
+                            <span>MP-${String(inventory.length + idx + 1).padStart(4, '0')}</span>
                           </span>
                         </div>
                       </div>
@@ -1867,14 +1926,25 @@ export default function AdminPage() {
 
               {/* Columna Derecha: Formulario */}
               <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre <span className="text-error font-black text-xs">*</span></label>
-                  <input
-                    type="text"
-                    className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
-                    value={editingProduct.name}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Código MPID</label>
+                    <input
+                      type="text"
+                      disabled
+                      className="w-full bg-surface-container-high/60 border-none rounded-2xl px-4 py-3 outline-none text-sm font-mono font-bold text-primary opacity-90 cursor-not-allowed"
+                      value={editingProduct.mpid || 'MP-0001'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nombre del Producto</label>
+                    <input
+                      type="text"
+                      className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm font-bold"
+                      value={editingProduct.name}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1911,11 +1981,11 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tamaño (cm)</label>
                     <input
                       type="text"
                       className="w-full bg-surface-container-low border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none text-sm"
-                      placeholder="Ej: 30cm"
+                      placeholder="Ej. 25"
                       value={editingProduct.size || ""}
                       onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })}
                     />
@@ -2012,7 +2082,15 @@ export default function AdminPage() {
               {categories.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center justify-between p-3.5 bg-surface-container-low/40 rounded-2xl border border-surface-container/30 hover:border-surface-container transition-colors"
+                  draggable={editingCategoryId !== c.id}
+                  onDragStart={(e) => handleDragStart(e, c.id)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, c.id)}
+                  onDragEnd={() => setDraggedCategoryId(null)}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border transition-colors ${draggedCategoryId === c.id
+                      ? "bg-primary/20 border-primary opacity-50"
+                      : "bg-surface-container-low/40 border-surface-container/30 hover:border-surface-container cursor-grab active:cursor-grabbing"
+                    }`}
                 >
                   {editingCategoryId === c.id ? (
                     <div className="flex-1 flex gap-2">
@@ -2039,25 +2117,11 @@ export default function AdminPage() {
                     </div>
                   ) : (
                     <>
-                      <span className="text-sm font-bold text-on-surface">{c.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-on-surface-variant/50">drag_indicator</span>
+                        <span className="text-sm font-bold text-on-surface">{c.name}</span>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleMoveCategory(c.id, "up")}
-                          disabled={categories.findIndex(x => x.id === c.id) === 0}
-                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-all disabled:opacity-30 disabled:hover:bg-surface-container-low disabled:hover:text-on-surface-variant"
-                          title="Subir"
-                        >
-                          <span className="material-symbols-outlined text-xs">arrow_upward</span>
-                        </button>
-                        <button
-                          onClick={() => handleMoveCategory(c.id, "down")}
-                          disabled={categories.findIndex(x => x.id === c.id) === categories.length - 1}
-                          className="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-all disabled:opacity-30 disabled:hover:bg-surface-container-low disabled:hover:text-on-surface-variant"
-                          title="Bajar"
-                        >
-                          <span className="material-symbols-outlined text-xs">arrow_downward</span>
-                        </button>
-                        <div className="h-4 w-px bg-surface-container/60"></div>
                         <button
                           onClick={() => { setEditingCategoryId(c.id); setEditingCategoryName(c.name); }}
                           disabled={hasCategoryChanges}
@@ -2693,7 +2757,7 @@ export default function AdminPage() {
             </div>
             {/* Mobile search icon only */}
             <button className="sm:hidden w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-lowest border border-surface-container/60 text-on-surface-variant shrink-0">
-               <span className="material-symbols-outlined">search</span>
+              <span className="material-symbols-outlined">search</span>
             </button>
           </div>
 
@@ -2829,56 +2893,7 @@ export default function AdminPage() {
 
               {/* Right Column: Inventory Alerts & System Status */}
               <div className="space-y-8">
-                {/* Stock Alerts Card */}
-                <div className="bg-surface-container-lowest p-8 rounded-[2rem] shadow-[0_12px_40px_rgba(146,63,95,0.04)] border border-primary/5">
-                  <h3 className="text-lg font-black text-on-surface mb-6 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-error">warning</span>
-                    Alertas de Stock
-                  </h3>
-                  <div className="space-y-4">
-                    {loading ? (
-                      <p className="text-center text-sm text-on-surface-variant">Cargando...</p>
-                    ) : (
-                      (() => {
-                        const lowStockItems = inventory.filter((item: any) => {
-                          const qty = item.inventory?.[0]?.quantity ?? 0;
-                          return qty <= 2;
-                        });
 
-                        if (lowStockItems.length === 0) {
-                          return (
-                            <div className="flex flex-col items-center justify-center py-6 text-center">
-                              <span className="material-symbols-outlined text-green-500 text-3xl mb-2">check_circle</span>
-                              <p className="text-xs font-bold text-on-surface">¡Todo al día!</p>
-                              <p className="text-[10px] text-on-surface-variant">Inventario saludable.</p>
-                            </div>
-                          );
-                        }
-
-                        return lowStockItems.map((item: any) => {
-                          const qty = item.inventory?.[0]?.quantity ?? 0;
-                          return (
-                            <div key={item.id} className="p-4 rounded-2xl bg-surface-container-low/50 border border-primary/5 flex items-center justify-between">
-                              <div>
-                                <p className="text-xs font-bold text-on-surface">{item.name}</p>
-                                <p className="text-[9px] uppercase tracking-wider font-semibold text-on-surface-variant">
-                                  {qty === 0 ? "Agotado" : `Solo ${qty} unidades`}
-                                </p>
-                              </div>
-                              <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase ${
-                                qty === 0 
-                                  ? "bg-error/10 text-error animate-pulse" 
-                                  : "bg-amber-500/10 text-amber-600"
-                              }`}>
-                                {qty === 0 ? "Agotado" : "Bajo"}
-                              </span>
-                            </div>
-                          );
-                        });
-                      })()
-                    )}
-                  </div>
-                </div>
 
 
               </div>
@@ -3337,15 +3352,28 @@ export default function AdminPage() {
             </div>
 
             {/* Category Filter */}
+            <div className="px-8 py-5 border-b border-surface-container/50 space-y-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base text-primary">filter_list</span>
+                  Filtrar por Categoría
+                </span>
+                <button
+                  onClick={() => setIsManageCategoriesOpen(true)}
+                  className="px-5 py-2.5 bg-secondary text-on-secondary rounded-full text-xs font-bold shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">category</span>
+                  Gestionar Categorías
+                </button>
+              </div>
 
-            <div className="px-8 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-surface-container/50">
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2.5 pt-1">
                 {["Todos", ...categories.map(c => c.name)].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-6 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${selectedCategory === cat
-                      ? "bg-[#923f5f] text-white shadow-[#923f5f]/20"
+                    className={`px-5 py-2 rounded-full text-xs font-bold transition-all shadow-sm ${selectedCategory === cat
+                      ? "bg-[#923f5f] text-white shadow-[#923f5f]/20 scale-105"
                       : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"
                       }`}
                   >
@@ -3353,13 +3381,6 @@ export default function AdminPage() {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => setIsManageCategoriesOpen(true)}
-                className="px-5 py-2.5 bg-secondary text-on-secondary rounded-full text-xs font-bold shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-sm">category</span>
-                Gestionar Categorías
-              </button>
             </div>
 
             <div className="p-8">
@@ -3430,11 +3451,10 @@ export default function AdminPage() {
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="absolute inset-0 bg-[#2e2f2d]/30 backdrop-blur-sm" onClick={() => setToast(null)} />
             <div className="relative bg-white dark:bg-surface-container-lowest rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl border border-primary/10 animate-in zoom-in-95 duration-200 text-center flex flex-col items-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${
-                toast.type === "error" 
-                  ? "bg-error/10 text-error" 
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${toast.type === "error"
+                  ? "bg-error/10 text-error"
                   : "bg-green-500/10 text-green-600"
-              }`}>
+                }`}>
                 <span className="material-symbols-outlined text-3xl font-black">
                   {toast.type === "error" ? "error" : "check_circle"}
                 </span>
@@ -3442,13 +3462,12 @@ export default function AdminPage() {
               <p className="text-on-surface text-base font-bold mb-6 mt-2 leading-relaxed">
                 {toast.message}
               </p>
-              <button 
+              <button
                 onClick={() => setToast(null)}
-                className={`w-full py-3.5 rounded-full font-bold text-xs uppercase tracking-widest transition-all ${
-                  toast.type === "error"
+                className={`w-full py-3.5 rounded-full font-bold text-xs uppercase tracking-widest transition-all ${toast.type === "error"
                     ? "bg-error text-white shadow-lg hover:scale-105 active:scale-95"
                     : "bg-primary text-on-primary shadow-lg hover:scale-105 active:scale-95"
-                }`}
+                  }`}
               >
                 Aceptar
               </button>
@@ -3467,13 +3486,13 @@ export default function AdminPage() {
               <h3 className="text-xl font-black text-on-surface mb-2">{confirmConfig.title}</h3>
               <p className="text-on-surface-variant text-sm mb-6 leading-relaxed">{confirmConfig.message}</p>
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
                   className="flex-1 py-3 bg-surface-container-low border border-surface-container/50 rounded-full font-bold text-on-surface hover:bg-surface-container-high transition-all text-xs uppercase tracking-widest"
                 >
                   Cancelar
                 </button>
-                <button 
+                <button
                   onClick={confirmConfig.onConfirm}
                   className="flex-1 py-3 bg-error text-white rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all text-xs uppercase tracking-widest"
                 >
@@ -3551,10 +3570,17 @@ function AdminProductCard({ item, onToggle, onToggleVisibility, onToggleHero, on
 
       <div className="space-y-3 cursor-pointer" onClick={() => onEdit(item)}>
         <div>
+          <span className="text-[10px] text-on-surface-variant font-medium uppercase tracking-wider block mb-1">
+            {item.categories?.name || 'General'}
+          </span>
           <h4 className="font-bold text-on-surface text-lg leading-tight group-hover:text-primary transition-colors truncate" title={item.name}>
             {item.name}
           </h4>
-          <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-wider mt-1">ID: {item.id.split('-')[0]}...</p>
+          {item.mpid && (
+            <span className="text-[11px] font-mono font-medium text-on-surface-variant/50 tracking-wider block mt-1">
+              {item.mpid}
+            </span>
+          )}
         </div>
 
         <div className="flex justify-between items-end pt-2 border-t border-surface-variant/10">

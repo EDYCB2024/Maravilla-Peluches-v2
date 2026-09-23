@@ -103,9 +103,15 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
               )}
             </div>
 
-            <h2 className="text-2xl md:text-3xl font-black text-on-surface mb-3 leading-tight">
+            <h2 className="text-2xl md:text-3xl font-black text-on-surface mb-1 leading-tight">
               {product.name}
             </h2>
+
+            {product.mpid && (
+              <p className="text-xs font-mono font-medium text-on-surface-variant/50 tracking-wider mb-4">
+                {product.mpid}
+              </p>
+            )}
 
             <div className="space-y-4 mb-6">
               <div className="flex items-baseline gap-3">
@@ -161,10 +167,10 @@ export default function ProductModal({ product, isOpen, onClose, dollarRate = 0 
               onClick={handleAddToCart}
               disabled={product.is_active === false}
               className={`w-full py-4 rounded-full font-black text-base shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${isAdding
-                  ? "bg-green-600 text-white scale-[0.98]"
-                  : product.is_active !== false
-                    ? "bg-gradient-to-r from-primary to-primary-container text-on-primary hover:scale-[1.01] active:scale-95"
-                    : "bg-surface-container-high text-on-surface/40 cursor-not-allowed"
+                ? "bg-green-600 text-white scale-[0.98]"
+                : product.is_active !== false
+                  ? "bg-gradient-to-r from-primary to-primary-container text-on-primary hover:scale-[1.01] active:scale-95"
+                  : "bg-surface-container-high text-on-surface/40 cursor-not-allowed"
                 }`}
             >
               <span className="material-symbols-outlined text-xl">

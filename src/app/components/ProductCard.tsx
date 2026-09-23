@@ -60,9 +60,9 @@ export default function ProductCard({ product, dollarRate = 0 }: ProductCardProp
           )}
         </div>
         {/* Info Adicional: Tamaño */}
-        <div className="flex flex-wrap gap-2 mb-4 h-6">
+        <div className="flex flex-wrap gap-2 mb-3 items-center">
           {product.size && (
-            <span className="px-2.5 py-1 bg-secondary/5 text-secondary text-[9px] font-black uppercase tracking-widest rounded-lg border border-secondary/10 flex items-center gap-1.5 shadow-sm">
+            <span className="px-2.5 py-0.5 bg-secondary/5 text-secondary text-[9px] font-black uppercase tracking-widest rounded-md border border-secondary/10 flex items-center gap-1 shadow-sm">
               <span className="material-symbols-outlined text-[11px]">straighten</span>
               {product.size}
             </span>
@@ -70,9 +70,16 @@ export default function ProductCard({ product, dollarRate = 0 }: ProductCardProp
         </div>
 
         <div className="flex flex-col flex-grow">
-          <h3 className={`text-xl font-bold mb-1 transition-colors duration-300 group-hover:text-primary ${product.is_active === false ? 'text-on-surface/60' : 'text-on-surface'}`}>{product.name}</h3>
-          <p className="text-on-surface-variant text-sm mb-4 line-clamp-2">{product.description}</p>
-          <div className="mt-auto flex items-center justify-between">
+          <h3 className={`text-xl font-bold transition-colors duration-300 group-hover:text-primary ${product.is_active === false ? 'text-on-surface/60' : 'text-on-surface'}`}>{product.name}</h3>
+          {product.mpid && (
+            <span className="text-[11px] font-mono font-medium text-on-surface-variant/50 tracking-wider mb-2 mt-0.5">
+              {product.mpid}
+            </span>
+          )}
+          {product.description && (
+            <p className="text-on-surface-variant text-sm mb-4 line-clamp-2">{product.description}</p>
+          )}
+          <div className="mt-auto pt-3 border-t border-black/[0.06] dark:border-white/10 flex items-center justify-between">
             <div className="flex flex-col">
               <span className={`text-2xl font-extrabold tracking-tight ${product.is_active === false ? 'text-on-surface/40' : 'text-primary'}`}>
                 ${product.price.toFixed(2)}

@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 interface Product {
   id: string;
+  mpid?: string;
   name: string;
   price: number;
   description: string;
@@ -43,7 +44,7 @@ export default async function HomePage({
     supabase
       .from("products")
       .select(`
-        id, name, price, description, size, is_active, is_visible, is_hero,
+        id, name, mpid, price, description, size, is_active, is_visible, is_hero, created_at,
         categories (name),
         product_images (url, alt_text, is_primary),
         inventory (quantity, status)
@@ -64,9 +65,18 @@ export default async function HomePage({
     working_hours: "Lunes a Sábado: 10am - 8pm"
   };
 
+  // Ordenar cronológicamente y asignar mpid secuencial si no existe
+  const allRawProducts = (productsRes.data || []).sort((a: any, b: any) =>
+    (a.created_at || '').localeCompare(b.created_at || '')
+  );
+  const productsWithMPID = allRawProducts.map((p: any, idx: number) => ({
+    ...p,
+    mpid: p.mpid || `MP-${String(idx + 1).padStart(4, '0')}`
+  }));
+
   // Identificamos el producto de portada y filtramos los visibles
-  const heroProduct = productsRes.data?.find(p => (p as any).is_hero === true);
-  let products: Product[] = (productsRes.data || [])
+  const heroProduct = productsWithMPID.find(p => (p as any).is_hero === true);
+  let products: Product[] = productsWithMPID
     .filter(p => (p as any).is_visible !== false && (p as any).is_hero !== true)
     .sort((a, b) => a.name.localeCompare(b.name));
   const categories: Category[] = categoriesRes.data || [];
